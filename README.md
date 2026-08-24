@@ -101,4 +101,4 @@ Your folder should show your journey:
 
 By the end of the mentorship, your GitHub folder should clearly demonstrate **how you have progressed as an ML learner.**
 
-**Be consistent. Keep learning. Keep building. 🚀**
+**Be consistent. Keep learning. Keep building.
