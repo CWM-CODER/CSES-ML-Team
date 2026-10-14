@@ -51,9 +51,7 @@ def get_embedding(app, img_or_path):
 
 def clean_name(folder_name):
     name = folder_name
-    if name.lower().startswith("pins_"):
-        name = name[5:]
-    return name.replace("_", " ").strip()
+    return name
 
 
 def find_celebrity_folders(root):
