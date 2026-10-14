@@ -1,0 +1,374 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Celebrity Lookalike</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #F4F5FA;
+    --ink: #1B1F3B;
+    --ink-soft: #565B7A;
+    --line: #DADDEA;
+    --magenta: #D61F69;
+    --magenta-dark: #B3175A;
+    --marigold: #FFB400;
+    --white: #FFFFFF;
+    --radius: 20px;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "DM Sans", system-ui, sans-serif;
+    font-size: 17px;
+    line-height: 1.55;
+  }
+  h1, h2, h3 { font-family: "Bricolage Grotesque", "DM Sans", sans-serif; line-height: 1.1; margin: 0; }
+  button { font: inherit; cursor: pointer; }
+  :focus-visible { outline: 3px solid var(--marigold); outline-offset: 3px; }
+
+  .page { max-width: 1080px; margin: 0 auto; padding: 32px 20px 56px; }
+  header { max-width: 34rem; margin-bottom: 28px; }
+  header h1 { font-size: clamp(2rem, 5vw, 3.1rem); font-weight: 700; letter-spacing: -0.02em; }
+  header p { margin: 12px 0 0; color: var(--ink-soft); }
+
+  .layout { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+  @media (max-width: 860px) { .layout { grid-template-columns: 1fr; } }
+
+  /* Viewfinder */
+  .finder {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--ink);
+    color: var(--white);
+  }
+  .finder video {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    object-fit: cover; transform: scaleX(-1);
+    display: none;
+  }
+  .finder.live video { display: block; }
+  .finder .idle {
+    position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 14px; padding: 24px; text-align: center;
+  }
+  .finder.live .idle { display: none; }
+  .finder .idle p { margin: 0; max-width: 20rem; color: #C9CCE3; }
+
+  .frame, .guide { position: absolute; pointer-events: none; display: none; }
+  .finder.live .frame, .finder.live .guide { display: block; }
+  .frame { inset: 16px; }
+  .frame i { position: absolute; width: 28px; height: 28px; border: 0 solid var(--marigold); }
+  .frame i:nth-child(1) { top: 0; left: 0; border-top-width: 4px; border-left-width: 4px; border-top-left-radius: 8px; }
+  .frame i:nth-child(2) { top: 0; right: 0; border-top-width: 4px; border-right-width: 4px; border-top-right-radius: 8px; }
+  .frame i:nth-child(3) { bottom: 0; left: 0; border-bottom-width: 4px; border-left-width: 4px; border-bottom-left-radius: 8px; }
+  .frame i:nth-child(4) { bottom: 0; right: 0; border-bottom-width: 4px; border-right-width: 4px; border-bottom-right-radius: 8px; }
+  .guide {
+    left: 50%; top: 50%; width: 42%; height: 76%;
+    transform: translate(-50%, -50%);
+    border: 2px dashed rgba(255, 255, 255, 0.55);
+    border-radius: 50%;
+  }
+  .scan {
+    position: absolute; left: 0; right: 0; top: 0; height: 3px; display: none;
+    background: linear-gradient(90deg, transparent, var(--marigold), transparent);
+    box-shadow: 0 0 18px 4px rgba(255, 180, 0, 0.55);
+  }
+  .finder.busy .scan { display: block; animation: sweep 1.4s ease-in-out infinite alternate; }
+  @keyframes sweep { from { top: 6%; } to { top: 94%; } }
+  @media (prefers-reduced-motion: reduce) {
+    .finder.busy .scan { animation: none; top: 50%; }
+  }
+
+  .controls { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 16px; align-items: center; }
+  .btn {
+    border: 0; border-radius: 999px; padding: 13px 24px; font-weight: 700;
+    background: var(--magenta); color: var(--white);
+  }
+  .btn:hover:not(:disabled) { background: var(--magenta-dark); }
+  .btn:disabled { opacity: 0.45; cursor: not-allowed; }
+  .btn.quiet { background: transparent; color: var(--ink); border: 2px solid var(--line); }
+  .btn.quiet:hover:not(:disabled) { background: var(--white); }
+  .link { background: none; border: 0; padding: 0; color: var(--ink-soft); text-decoration: underline; }
+  .link:hover { color: var(--ink); }
+
+  #status { min-height: 1.6em; margin: 14px 0 0; color: var(--ink-soft); }
+  #status.error { color: #B3261E; font-weight: 500; }
+
+  .privacy { margin: 18px 0 0; font-size: 0.9rem; color: var(--ink-soft); max-width: 36rem; }
+
+  /* Results */
+  .result { background: var(--white); border-radius: var(--radius); padding: 22px; border: 1px solid var(--line); }
+  .result[hidden] { display: none; }
+  .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .photo {
+    position: relative; aspect-ratio: 3 / 4; border-radius: 14px; overflow: hidden;
+    background: #E7E9F3; display: flex; align-items: center; justify-content: center;
+  }
+  .photo img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .photo figcaption {
+    position: absolute; left: 8px; bottom: 8px; background: rgba(27, 31, 59, 0.82); color: var(--white);
+    font-size: 0.85rem; padding: 3px 10px; border-radius: 999px;
+  }
+  .initials { font-family: "Bricolage Grotesque", sans-serif; font-size: 3rem; font-weight: 700; color: var(--ink-soft); }
+  figure { margin: 0; }
+
+  .top h2 { font-size: clamp(1.6rem, 4vw, 2.2rem); margin-top: 18px; letter-spacing: -0.01em; }
+  .score { display: flex; align-items: baseline; gap: 10px; margin-top: 6px; }
+  .score b { font-family: "Bricolage Grotesque", sans-serif; font-size: 2.6rem; line-height: 1; }
+  .score span { color: var(--ink-soft); }
+  .bar { height: 10px; background: #E7E9F3; border-radius: 999px; overflow: hidden; margin-top: 10px; }
+  .bar > div { height: 100%; background: var(--marigold); border-radius: 999px; transition: width 0.5s ease-out; }
+  @media (prefers-reduced-motion: reduce) { .bar > div { transition: none; } }
+
+  .others { list-style: none; margin: 24px 0 0; padding: 18px 0 0; border-top: 1px solid var(--line); display: grid; gap: 14px; }
+  .others h3 { font-size: 1.05rem; margin-bottom: 4px; }
+  .row { display: grid; grid-template-columns: 48px 1fr auto; gap: 12px; align-items: center; }
+  .thumb {
+    width: 48px; height: 48px; border-radius: 50%; overflow: hidden; background: #E7E9F3;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .thumb img { width: 100%; height: 100%; object-fit: cover; }
+  .thumb .initials { font-size: 1.2rem; }
+  .row .nm { font-weight: 500; }
+  .row .pc { font-weight: 700; }
+  .fine { margin: 18px 0 0; font-size: 0.85rem; color: var(--ink-soft); }
+  .result .again { margin-top: 18px; }
+  .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>Which celebrity do you look like?</h1>
+    <p>Turn on your camera and face it. We compare your face with a gallery of film stars and show your three closest matches.</p>
+  </header>
+
+  <div class="layout">
+    <section aria-label="Camera">
+      <div class="finder" id="finder">
+        <video id="video" playsinline muted></video>
+        <div class="idle">
+          <p>The camera is off. Start it, then line your face up inside the oval.</p>
+          <button class="btn" id="startBtn" type="button">Start camera</button>
+        </div>
+        <div class="guide"></div>
+        <div class="frame"><i></i><i></i><i></i><i></i></div>
+        <div class="scan"></div>
+      </div>
+
+      <div class="controls">
+        <button class="btn" id="captureBtn" type="button" disabled>Find my lookalike</button>
+        <button class="link" id="uploadBtn" type="button">Upload a photo instead</button>
+        <input class="visually-hidden" id="fileInput" type="file" accept="image/*" tabindex="-1">
+      </div>
+      <p id="status" role="status" aria-live="polite"></p>
+      <p class="privacy">Your photo is sent to the matcher for this check only and isn't saved. The result is for fun and doesn't identify who you are.</p>
+    </section>
+
+    <section class="result" id="result" aria-label="Your result" hidden>
+      <div class="top">
+        <div class="pair">
+          <figure class="photo"><img id="youImg" alt="Your photo"><figcaption>You</figcaption></figure>
+          <figure class="photo" id="topPhoto"><figcaption id="topCaption">Closest match</figcaption></figure>
+        </div>
+        <h2 id="topName"></h2>
+        <div class="score"><b id="topPct"></b><span>match</span></div>
+        <div class="bar" aria-hidden="true"><div id="topBar"></div></div>
+      </div>
+      <ol class="others" id="others" aria-label="Other close matches"></ol>
+      <button class="btn quiet again" id="againBtn" type="button">Try again</button>
+    </section>
+  </div>
+</div>
+
+<script>
+  // Leave empty when the page is served by the FastAPI server (same address).
+  // If you host this page somewhere else, put your backend address here, e.g. "https://my-api.onrender.com".
+  const API_BASE = "";
+
+  const $ = (id) => document.getElementById(id);
+  const finder = $("finder"), video = $("video");
+  const startBtn = $("startBtn"), captureBtn = $("captureBtn");
+  const uploadBtn = $("uploadBtn"), fileInput = $("fileInput");
+  const statusEl = $("status"), resultEl = $("result");
+  let stream = null;
+
+  function setStatus(text, isError) {
+    statusEl.textContent = text || "";
+    statusEl.classList.toggle("error", !!isError);
+  }
+
+  function setBusy(busy) {
+    finder.classList.toggle("busy", busy);
+    captureBtn.disabled = busy || !stream;
+    uploadBtn.disabled = busy;
+    if (busy) setStatus("Comparing your face with the gallery...");
+  }
+
+  async function startCamera() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setStatus("The camera needs HTTPS or localhost. Open the site over HTTPS, or upload a photo instead.", true);
+      return;
+    }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 960 } },
+        audio: false,
+      });
+      video.srcObject = stream;
+      await video.play();
+      finder.classList.add("live");
+      captureBtn.disabled = false;
+      setStatus("Camera is on. Face the light, then press Find my lookalike.");
+    } catch (err) {
+      stream = null;
+      if (err && err.name === "NotAllowedError") {
+        setStatus("Camera access was blocked. Allow it in your browser's site settings, or upload a photo instead.", true);
+      } else if (err && err.name === "NotFoundError") {
+        setStatus("No camera was found on this device. Upload a photo instead.", true);
+      } else {
+        setStatus("The camera couldn't start. Close other apps using it, or upload a photo instead.", true);
+      }
+    }
+  }
+
+  // Draw any image/video source onto a canvas (max 800px on the longest side) and return a JPEG blob.
+  function toJpeg(source, w, h) {
+    const scale = Math.min(1, 800 / Math.max(w, h));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(w * scale);
+    canvas.height = Math.round(h * scale);
+    canvas.getContext("2d").drawImage(source, 0, 0, canvas.width, canvas.height);
+    return new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
+  }
+
+  async function findLookalike(blob) {
+    setBusy(true);
+    resultEl.hidden = true;
+    const youUrl = URL.createObjectURL(blob);
+    try {
+      const form = new FormData();
+      form.append("file", blob, "photo.jpg");
+      const res = await fetch(API_BASE + "/match", { method: "POST", body: form });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(typeof body.detail === "string" ? body.detail : "Something went wrong. Please try again.");
+      }
+      const data = await res.json();
+      showResult(data.matches, youUrl);
+      setStatus("");
+    } catch (err) {
+      const offline = err instanceof TypeError;
+      setStatus(offline ? "Couldn't reach the matcher. Check that the server is running." : err.message, true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function initials(name) {
+    return name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join("");
+  }
+
+  // Put a celebrity photo in `box`; fall back to initials if the image can't load.
+  function fillPhoto(box, match, className) {
+    const img = new Image();
+    img.alt = match.name;
+    img.onerror = () => {
+      img.remove();
+      const s = document.createElement("span");
+      s.className = "initials";
+      s.textContent = initials(match.name);
+      box.prepend(s);
+    };
+    img.src = API_BASE + match.image_url;
+    box.prepend(img);
+  }
+
+  function pct(score) { return Math.round(score * 100); }
+
+  function showResult(matches, youUrl) {
+    const [best, ...rest] = matches;
+
+    $("youImg").src = youUrl;
+
+    const topPhoto = $("topPhoto");
+    topPhoto.querySelectorAll("img, .initials").forEach((n) => n.remove());
+    fillPhoto(topPhoto, best);
+
+    $("topName").textContent = best.name;
+    $("topPct").textContent = pct(best.score) + "%";
+    $("topBar").style.width = "0%";
+    requestAnimationFrame(() => requestAnimationFrame(() => { $("topBar").style.width = pct(best.score) + "%"; }));
+
+    const list = $("others");
+    list.innerHTML = "";
+    if (rest.length) {
+      const head = document.createElement("li");
+      const h = document.createElement("h3");
+      h.textContent = "Also close";
+      head.appendChild(h);
+      list.appendChild(head);
+    }
+    rest.forEach((m) => {
+      const li = document.createElement("li");
+      li.className = "row";
+      const thumb = document.createElement("div");
+      thumb.className = "thumb";
+      fillPhoto(thumb, m);
+      const nm = document.createElement("span");
+      nm.className = "nm";
+      nm.textContent = m.name;
+      const pc = document.createElement("span");
+      pc.className = "pc";
+      pc.textContent = pct(m.score) + "%";
+      li.append(thumb, nm, pc);
+      list.appendChild(li);
+    });
+
+    resultEl.hidden = false;
+    resultEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  startBtn.addEventListener("click", startCamera);
+
+  captureBtn.addEventListener("click", async () => {
+    if (!stream || !video.videoWidth) return;
+    const blob = await toJpeg(video, video.videoWidth, video.videoHeight);
+    findLookalike(blob);
+  });
+
+  uploadBtn.addEventListener("click", () => fileInput.click());
+  fileInput.addEventListener("change", async () => {
+    const file = fileInput.files[0];
+    fileInput.value = "";
+    if (!file) return;
+    try {
+      const bmp = await createImageBitmap(file);
+      const blob = await toJpeg(bmp, bmp.width, bmp.height);
+      findLookalike(blob);
+    } catch (e) {
+      setStatus("That file couldn't be read as an image. Try a JPG or PNG.", true);
+    }
+  });
+
+  $("againBtn").addEventListener("click", () => {
+    resultEl.hidden = true;
+    setStatus(stream ? "Camera is on. Press Find my lookalike when you're ready." : "");
+    finder.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  });
+
+  window.addEventListener("pagehide", () => {
+    if (stream) stream.getTracks().forEach((t) => t.stop());
+  });
+</script>
+</body>
+</html>
