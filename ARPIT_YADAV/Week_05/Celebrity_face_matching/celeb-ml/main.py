@@ -31,12 +31,24 @@ if FAKE:
     class FakeMatcher:
         """Returns made-up results so the frontend can be built without the model."""
 
-        def match(self, img, top_k=3):
+        def match(self, img, top_k=4, gender_mode="auto", dataset="all"):
             sample = [("Sample Actor 1", 0.78), ("Sample Actor 2", 0.71), ("Sample Actor 3", 0.64)]
-            return [
-                {"name": n, "score": s, "raw_similarity": 0.0, "image_url": f"/photos/{quote(n)}.jpg"}
-                for n, s in sample[:top_k]
-            ]
+            return {
+                "detected_gender": "Male",
+                "target_gender": "Male",
+                "active_dataset": dataset,
+                "available_datasets": [
+                    {"id": "all", "name": "All Stars", "icon": "⭐"},
+                    {"id": "bollywood", "name": "Bollywood", "icon": "🇮🇳"},
+                    {"id": "hollywood", "name": "Hollywood", "icon": "🎬"},
+                ],
+                "best_overall": {"name": "Sample Actor 1", "dataset": "bollywood", "dataset_name": "Bollywood", "dataset_icon": "🇮🇳", "gender": "Male", "score": 0.78, "raw_similarity": 0.0, "image_url": f"/photos/{quote('Sample Actor 1')}.jpg"},
+                "by_dataset": {},
+                "matches": [
+                    {"name": n, "dataset": "bollywood", "dataset_name": "Bollywood", "dataset_icon": "🇮🇳", "gender": "Male", "score": s, "raw_similarity": 0.0, "image_url": f"/photos/{quote(n)}.jpg"}
+                    for n, s in sample[:top_k]
+                ],
+            }
 
     matcher = FakeMatcher()
 else:
@@ -57,7 +69,7 @@ def health():
 
 
 @app.post("/match")
-async def match(file: UploadFile = File(...)):
+async def match(file: UploadFile = File(...), gender: str = "auto", dataset: str = "all"):
     data = await file.read()
     if len(data) > MAX_BYTES:
         raise HTTPException(413, "That image is too large. Use a photo under 5 MB.")
@@ -72,10 +84,10 @@ async def match(file: UploadFile = File(...)):
         img = cv2.resize(img, (int(w * scale), int(h * scale)))
 
     # The model is CPU-heavy, so run it off the main event loop.
-    matches = await run_in_threadpool(matcher.match, img)
-    if matches is None:
+    result = await run_in_threadpool(matcher.match, img, gender_mode=gender, dataset=dataset)
+    if result is None:
         raise HTTPException(422, "No face found. Face the camera in good light and try again.")
-    return {"matches": matches}
+    return result
 
 
 # Celebrity photos, then the website itself. The "/" mount must stay last.

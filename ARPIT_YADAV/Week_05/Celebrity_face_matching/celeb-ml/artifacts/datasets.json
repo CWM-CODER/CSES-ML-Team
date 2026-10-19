@@ -1,0 +1,18 @@
+{
+  "bollywood": {
+    "id": "bollywood",
+    "name": "Bollywood",
+    "icon": "🇮🇳",
+    "embeddings": "embeddings_bollywood.npy",
+    "names": "names_bollywood.json",
+    "gender": "gender_bollywood.json"
+  },
+  "hollywood": {
+    "id": "hollywood",
+    "name": "Hollywood",
+    "icon": "🎬",
+    "embeddings": "embeddings_hollywood.npy",
+    "names": "names_hollywood.json",
+    "gender": "gender_hollywood.json"
+  }
+}

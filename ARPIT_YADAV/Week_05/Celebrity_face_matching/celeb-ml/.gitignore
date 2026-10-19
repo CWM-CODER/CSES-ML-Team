@@ -1,0 +1,4 @@
+data/
+data_hollywood/
+__pycache__/
+*.pyc
