@@ -11,53 +11,56 @@
 ┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐       ┌─────────────────┐
 │    01 INPUT     │  ──▶  │   02 PROCESS    │  ──▶  │   03 AI / ML    │  ──▶  │   04 DECISION   │  ──▶  │    05 OUTPUT    │
 │  Live RGB Frame │       │ Face Alignment  │       │ ArcFace 512-D   │       │ Cosine Search   │       │ Calibrated Match│
-│  & User Photo   │       │ & Bounding Box  │       │ & TTA Embedding │       │ & Gender Filter │       │ & Visual Portal │
+│  & User Photo   │       │ & Bounding Box  │       │ & TTA Embedding │       │ & Gender Subspace│      │ & Visual Twin   │
 └─────────────────┘       └─────────────────┘       └─────────────────┘       └─────────────────┘       └─────────────────┘
 ```
 
 #### [01] INPUT — Raw Data
-- **Webcam Video Stream or High-Res Image Upload**: Captures unconstrained user selfie or photo (supporting JPG, PNG, WebP up to 5 MB).
-- **Adaptive Image Rescaling**: Constrains ultra-high resolution inputs to a maximum dimension of 1280px to maintain deterministic inference latency.
-- **Reflective Border Padding**: Applies automatic `cv2.BORDER_REFLECT` mirror padding if the face touches image boundaries, preventing edge cropping failures.
+- **Live Webcam Stream or Photo Upload**: Ingests user portrait via real-time camera stream or image file (JPG, PNG, WebP up to 5 MB).
+- **Dynamic Dimension Scaling**: Automatically rescales oversized images to a maximum dimension of 1280px to maintain consistent sub-second inference.
+- **Reflective Border Padding**: Implements automatic `cv2.BORDER_REFLECT` mirror padding if face margins touch the boundary, eliminating edge-crop detection failures.
 
 #### [02] PROCESS — Prepare Data
-- **RetinaFace Sub-Millisecond Detection**: Scans multi-scale feature pyramids to locate precise face bounding boxes `[x1, y1, x2, y2]`.
-- **5-Point Landmark Extraction**: Accurately pinpoints facial keypoints (left eye, right eye, nose tip, left mouth corner, right mouth corner).
-- **Affine Pose Alignment**: Normalizes roll, pitch, and yaw rotations via 2D affine transformation, standardizing eye horizontal lines and crop symmetry.
+- **RetinaFace Sub-Millisecond Detection**: Employs multi-scale feature pyramids to extract precise facial bounding boxes `[x1, y1, x2, y2]`.
+- **5-Point Landmark Regression**: Locates critical biometric anchors: left eye, right eye, nose tip, left mouth corner, and right mouth corner.
+- **Affine Pose Normalization**: Performs 2D affine geometric transformation to normalize roll, pitch, and yaw rotations into a canonical eye-aligned orientation.
 
 #### [03] AI / ML — Recognize Patterns
 - **Deep Metric Learning (Buffalo_l Backbone)**: Passes the aligned 112×112 cropped face through a deep ResNet-based ArcFace feature extractor.
-- **512-Dimensional Vector Representation**: Compresses complex facial geometry, eye spacing, cheekbone structure, and jawlines into an $L_2$-normalized 512-dimensional unit sphere hyperspace ($\|v\| = 1$).
-- **Test-Time Augmentation (TTA)**: Feeds both original and horizontally mirrored frames to compute a fused vector $v_{\text{fused}} = \frac{v + v_{\text{flip}}}{\|v + v_{\text{flip}}\|}$, removing lighting asymmetry and camera-angle bias.
+- **512-Dimensional Vector Representation**: Maps complex facial topography, eye spacing, cheekbones, and jaw contours into an $L_2$-normalized 512-D unit hypersphere ($\|v\| = 1$).
+- **Test-Time Augmentation (TTA)**: Bilaterally extracts original and horizontally flipped embeddings to compute the fused vector:
+  $$v_{\text{fused}} = \frac{v + v_{\text{flip}}}{\|v + v_{\text{flip}}\|}$$
+  eliminating unilateral shadows, glare, and camera-angle tilt bias.
 
 #### [04] DECISION — Interpret Result
-- **High-Throughput Vector Dot-Product**: Computes vector similarity against pre-computed indexed celebrity embeddings across Bollywood and Hollywood databases ($S = E_{\text{celebs}} \cdot v_{\text{query}}$).
-- **Demographic Subspace Partitioning**: Runs automated gender classification and applies subspace filtering (Male, Female, or All) to enforce relevant lookalike candidates.
-- **Top-$K$ Nearest Neighbor Ranking**: Selects the highest similarity score celebrities within each cinema category and across the global pool.
+- **High-Throughput Vector Dot-Product**: Executes fast matrix dot-product similarity ($S = E_{\text{celebs}} \cdot v_{\text{query}}$) against pre-indexed Bollywood and Hollywood celebrity embedding matrices.
+- **Automated Gender Subspace Filtering**: Automatically detects user gender via facial biometric classification and filters candidates to ensure relevant lookalike matching.
+- **Top-$K$ Nearest Neighbor Ranking**: Sorts candidates in descending similarity order, identifying top industry matches and global lookalikes.
 
 #### [05] OUTPUT — Final Action
-- **Non-Linear Lookalike Score Calibration**: Maps raw cosine similarity (typically 0.05 to 0.45) through an empirical calibration power curve:
-  $$\text{Score}(\%) = 30.0 + 68.0 \times \left(\frac{\text{sim} - 0.04}{0.46 - 0.04}\right)^{0.70}$$
-- **Interactive Web Interface**: Delivers side-by-side photo comparison with the celebrity twin, match percentage, and cross-industry breakdown (Bollywood ⭐ vs Hollywood 🎬).
+- **Threshold-Anchored Biometric Calibration**: Maps raw cosine similarity through the official InsightFace verification boundary ($T = 0.25$):
+  $$\text{Score}(\%) = \begin{cases} 
+  15.0 + 50.0 \times \left(\frac{\text{sim} - 0.04}{0.25 - 0.04}\right)^{0.85} & \text{if } \text{sim} < 0.25 \\
+  65.0 + 33.0 \times \left(\frac{\text{sim} - 0.25}{0.40 - 0.25}\right)^{0.75} & \text{if } \text{sim} \ge 0.25
+  \end{cases}$$
+- **Interactive Twin Visualizer**: Renders side-by-side comparison with the closest celebrity lookalike, displaying calibrated match percentages, cross-industry breakdown (Bollywood ⭐ vs Hollywood 🎬), and alternative runner-up matches.
 
 ---
 
 ### 02 — THE ML BEHIND IT
 
 #### 🧬 Concept 1: ArcFace (Additive Angular Margin Loss)
-- **What it does & why it's used**: Standard cross-entropy classification treats classes independently and fails to generalize to unseen faces. ArcFace projects face embeddings onto a 512-dimensional hypersphere and introduces an additive angular margin penalty ($m = 0.5$) directly to the target angle $\cos(\theta + m)$.
-- **Why it matters**: It exponentially maximizes inter-class angular discrepancy while penalizing intra-class variance. The resulting embedding vectors are purely identity-discriminative, remaining robust against changes in facial hair, lighting, makeup, glasses, and aging.
+- **What it does & why it's used**: Traditional softmax classification treats classes independently and fails to generalize to unseen faces. ArcFace projects embeddings onto a 512-dimensional hypersphere and introduces an additive angular margin penalty ($m = 0.5$) directly to the target angle $\cos(\theta + m)$.
+- **Why it matters**: It exponentially maximizes inter-class angular discrepancy while penalizing intra-class variance. The resulting embedding vectors are purely identity-discriminative, remaining robust against lighting, makeup, facial hair, glasses, and aging.
 
-#### ⚖️ Concept 2: Test-Time Augmentation (TTA) & Geometric Alignment
-- **How the model learns or reasons**: Facial images captured via webcams often suffer from unilateral glare, focal distortion, and slight head tilts. The system uses a multi-task RetinaFace network that simultaneously predicts face confidence, bounding boxes, and 5 facial landmarks.
-- **Bilateral Fusion**: During inference, the pipeline performs horizontal flip augmentation:
-  $$v_{\text{final}} = \frac{v_{\text{original}} + v_{\text{flipped}}}{\|v_{\text{original}} + v_{\text{flipped}}\|}$$
-  This bilateral cancellation balances asymmetric shadows and tilt artifacts, yielding an invariant facial signature.
+#### ⚖️ Concept 2: RetinaFace Landmark Alignment & TTA Bilateral Fusion
+- **How the model learns or reasons**: Real-world webcam photos suffer from perspective distortion and asymmetric illumination. The single-stage RetinaFace network simultaneously regresses face boundaries, 5 spatial keypoints, and confidence scores.
+- **Bilateral Cancellation**: At inference time, horizontal mirror fusion ($v + v_{\text{flip}}$) cancels out unilateral lighting artifacts and lens distortion, yielding a geometrically invariant facial signature.
 
-#### 🎯 Concept 3: Hyperspherical Cosine Similarity & Non-Linear Calibration
-- **How the result is generated**: Since all facial embedding vectors are normalized to unit magnitude ($\|u\|_2 = 1, \|v\|_2 = 1$), the cosine similarity is simplified to a dot product:
+#### 🎯 Concept 3: Hyperspherical Cosine Similarity & Threshold Calibration
+- **How the result is generated**: Because vectors are $L_2$-normalized to unit magnitude ($\|u\|_2 = 1, \|v\|_2 = 1$), cosine similarity simplifies to a dot product:
   $$\text{Sim}(u, v) = u \cdot v = \sum_{i=1}^{512} u_i v_i$$
-- **From Geometry to Intuition**: High-dimensional embeddings in 512-D space naturally experience orthogonal clustering (random pairs score near 0.04; authentic lookalikes score around 0.25–0.40). The non-linear power-law transform re-scales these narrow geometric margins into an intuitive, human-understandable 0–99% lookalike percentage.
+- **From Geometry to Intuition**: High-dimensional embeddings naturally experience orthogonal clustering (unrelated faces score near 0.04; authentic lookalikes sit around 0.20–0.32). The system anchors the official InsightFace verification threshold ($T = 0.25 \rightarrow 65\%$), ensuring clear differentiation between weak matches and genuine lookalikes.
 
 ---
 
