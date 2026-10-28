@@ -1,10 +1,14 @@
 {
-  "labels": ["open", "fist", "two_fingers", "thumbs_up", "point", "none"],
+  "labels": ["open", "fist", "two_fingers", "thumbs_up", "point", "rock", "none"],
   "colorMap": {
     "RED": "two_fingers",
     "BLUE": "fist",
     "YELLOW": "thumbs_up",
-    "GREEN": "point"
+    "GREEN": "point",
+    "WHITE": "rock",
+    "PURPLE": "open",
+    "CYAN": "rock",
+    "ORANGE": "rock"
   },
   "confirmFrames": 3,
   "confidenceThreshold": 0.7

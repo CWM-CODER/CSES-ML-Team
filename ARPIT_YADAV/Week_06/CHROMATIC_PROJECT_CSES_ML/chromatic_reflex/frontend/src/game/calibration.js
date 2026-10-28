@@ -7,6 +7,8 @@ const REQUIRED = [
   { label: 'fist',        name: 'Fist',        emoji: '✊' },
   { label: 'thumbs_up',  name: 'Thumbs Up',   emoji: '👍' },
   { label: 'point',       name: 'Pointing',    emoji: '☝️' },
+  { label: 'open',        name: 'Open Hand',   emoji: '🖐️' },
+  { label: 'rock',        name: 'Rock On',     emoji: '🤘' },
 ];
 
 const HOLD_FRAMES    = 25;    
@@ -29,22 +31,28 @@ function injectCalibStyles() {
       transition: background 0.3s ease, align-items 0.3s ease;
     }
     #calib-overlay.calib-cam-mode {
-      background: rgba(6,6,18,0.35);
+      background: transparent;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
       align-items: flex-end;
+      pointer-events: none;
+    }
+    #calib-overlay.calib-cam-mode .calib-card {
+      pointer-events: auto;
     }
     .calib-card {
       background: rgba(15,15,30,0.95);
       border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 20px; padding: 28px 36px;
-      width: min(540px, 92vw); color: #f1f5f9;
+      border-radius: 20px; padding: 26px 32px;
+      width: min(580px, 94vw); color: #f1f5f9;
       box-shadow: 0 28px 72px rgba(0,0,0,.7);
-      display: flex; flex-direction: column; gap: 18px;
+      display: flex; flex-direction: column; gap: 16px;
       box-sizing: border-box;
       transition: all 0.3s ease;
     }
     #calib-overlay.calib-cam-mode .calib-card {
       border-radius: 20px 20px 0 0;
-      width: 640px; max-width: 95vw;
+      width: 680px; max-width: 95vw;
       padding: 16px 24px 20px;
       gap: 12px;
     }
@@ -55,10 +63,13 @@ function injectCalibStyles() {
       background-clip: text;
     }
     .calib-sub { font-size: 13px; color: #94a3b8; margin-top: 4px; line-height: 1.4; }
-    .calib-list { display: flex; flex-direction: column; gap: 8px; }
+    .calib-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    @media (max-width: 520px) {
+      .calib-list { grid-template-columns: 1fr; }
+    }
     .calib-item {
-      display: flex; align-items: center; gap: 14px;
-      padding: 10px 14px; border-radius: 12px;
+      display: flex; align-items: center; gap: 12px;
+      padding: 9px 12px; border-radius: 12px;
       background: rgba(255,255,255,0.04);
       border: 1.5px solid transparent;
       transition: all .2s;
@@ -218,6 +229,10 @@ export function runCalibration(videoEl, canvasEl, tracker) {
     function loop() {
       if (isTerminated) return;
       if (videoEl.readyState < 2) { rafId = requestAnimationFrame(loop); return; }
+      if (canvasEl.width !== videoEl.videoWidth && videoEl.videoWidth > 0) {
+        canvasEl.width = videoEl.videoWidth;
+        canvasEl.height = videoEl.videoHeight;
+      }
 
       const det = tracker.detect(videoEl);
       ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);

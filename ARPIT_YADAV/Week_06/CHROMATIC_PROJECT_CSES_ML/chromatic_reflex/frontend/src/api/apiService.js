@@ -1,4 +1,4 @@
-const API_BASE_URL = import.meta.env?.VITE_API_URL || 'http://localhost:8000/api';
+const API_BASE_URL = import.meta.env?.VITE_API_URL || (import.meta.env?.PROD ? '/api' : 'http://localhost:8000/api');
 
 export function buildSessionPayload(playerInfo, stats, roundHistory) {
   const total = stats.total || 0;
@@ -30,6 +30,7 @@ export function buildSessionPayload(playerInfo, stats, roundHistory) {
     rounds: (roundHistory || []).map((r, idx) => ({
       round_number: idx + 1,
       color: r.color || 'UNKNOWN',
+      word: r.word || r.color || null,
       target_gesture: r.target || 'none',
       detected_gesture: r.detected || null,
       outcome: r.outcome || 'timeout', 

@@ -1,4 +1,4 @@
-import { playClick } from '../audio/soundManager.js';
+import { playClick, toggleMute, getMuted, initAudio, startBackgroundMusic } from '../audio/soundManager.js';
 import { createLeaderboardScreen } from './leaderboard.js';
 
 function injectHomeStyles() {
@@ -31,6 +31,33 @@ function injectHomeStyles() {
       to   { opacity: 1; transform: translateY(0); }
     }
 
+    .home-top-bar {
+      width: 100%;
+      display: flex;
+      justify-content: flex-end;
+      margin-bottom: -12px;
+    }
+    .home-btn-sound {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      color: #94a3b8;
+      border-radius: 99px;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+    .home-btn-sound:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #f1f5f9;
+      transform: translateY(-1px);
+    }
+
     .home-header {
       display: flex; flex-direction: column; align-items: center;
       text-align: center; gap: 10px;
@@ -55,7 +82,7 @@ function injectHomeStyles() {
 
     .home-gestures-grid {
       width: 100%;
-      display: grid; grid-template-columns: repeat(4, 1fr);
+      display: grid; grid-template-columns: repeat(3, 1fr);
       gap: 14px;
     }
     @media (max-width: 680px) {
@@ -63,7 +90,7 @@ function injectHomeStyles() {
     }
 
     .home-gcard {
-      border-radius: 14px; padding: 22px 14px 18px;
+      border-radius: 14px; padding: 20px 14px 16px;
       display: flex; flex-direction: column; align-items: center;
       text-align: center; gap: 8px;
       transition: transform 0.2s ease, box-shadow 0.2s ease;
@@ -110,6 +137,52 @@ function injectHomeStyles() {
     }
     .home-gcard-green .home-gcard-tag {
       background: rgba(0, 0, 0, 0.3); color: #dcfce7;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+    }
+
+    .home-gcard-purple {
+      background: linear-gradient(150deg, #9333ea 0%, #6b21a8 100%);
+      border: 2px solid #c084fc;
+      box-shadow: 0 10px 28px rgba(147, 51, 234, 0.35);
+    }
+    .home-gcard-purple .home-gcard-tag {
+      background: rgba(0, 0, 0, 0.3); color: #f3e8ff;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+    }
+
+    .home-gcard-white {
+      background: linear-gradient(150deg, #ffffff 0%, #e2e8f0 100%);
+      border: 2px solid #ffffff;
+      box-shadow: 0 10px 28px rgba(255, 255, 255, 0.45);
+    }
+    .home-gcard-white .home-gcard-tag {
+      background: rgba(15, 23, 42, 0.12);
+      color: #0f172a;
+      border: 1px solid rgba(15, 23, 42, 0.25);
+      font-weight: 900;
+    }
+    .home-gcard-white .home-gcard-name {
+      color: #0f172a;
+      font-weight: 800;
+    }
+
+    .home-gcard-cyan {
+      background: linear-gradient(150deg, #0891b2 0%, #0e7490 100%);
+      border: 2px solid #22d3ee;
+      box-shadow: 0 10px 28px rgba(6, 182, 212, 0.35);
+    }
+    .home-gcard-cyan .home-gcard-tag {
+      background: rgba(0, 0, 0, 0.3); color: #cffafe;
+      border: 1px solid rgba(255, 255, 255, 0.25);
+    }
+
+    .home-gcard-orange {
+      background: linear-gradient(150deg, #ea580c 0%, #9a3412 100%);
+      border: 2px solid #fb923c;
+      box-shadow: 0 10px 28px rgba(234, 88, 12, 0.35);
+    }
+    .home-gcard-orange .home-gcard-tag {
+      background: rgba(0, 0, 0, 0.3); color: #ffedd5;
       border: 1px solid rgba(255, 255, 255, 0.25);
     }
 
@@ -188,6 +261,10 @@ export function createHomeScreen() {
   ov.innerHTML = `
     <div class="home-container">
 
+      <div class="home-top-bar">
+        <button id="home-btn-sound" class="home-btn-sound">🔊 Sound On</button>
+      </div>
+
       <div class="home-header">
         <div class="home-org-badge">
           CSES • NIT WARANGAL • ML TEAM
@@ -219,14 +296,24 @@ export function createHomeScreen() {
           <span class="home-gcard-emoji">☝️</span>
           <span class="home-gcard-name">Pointing</span>
         </div>
+        <div class="home-gcard home-gcard-white">
+          <span class="home-gcard-tag">WHITE</span>
+          <span class="home-gcard-emoji">🤘</span>
+          <span class="home-gcard-name">Rock On</span>
+        </div>
+        <div class="home-gcard home-gcard-purple">
+          <span class="home-gcard-tag">PURPLE</span>
+          <span class="home-gcard-emoji">🖐️</span>
+          <span class="home-gcard-name">Open Hand</span>
+        </div>
       </div>
 
       <div class="home-brief">
-        <span class="home-brief-highlight">20 Timed Rounds</span>
+        <span class="home-brief-highlight">6 Reactive Gestures</span>
+        <span class="home-brief-divider">•</span>
+        <span class="home-brief-highlight">⚡ Stroop Challenge (Match Ink Color)</span>
         <span class="home-brief-divider">•</span>
         <span class="home-brief-highlight">Accelerating Speed (2.8s → 1.5s)</span>
-        <span class="home-brief-divider">•</span>
-        <span class="home-brief-highlight">Hand Tracking</span>
       </div>
 
       <div class="home-actions">
@@ -245,8 +332,36 @@ export function createHomeScreen() {
 
   const leaderboard = createLeaderboardScreen();
 
+  const soundBtn = document.getElementById('home-btn-sound');
+  function updateSoundBtn() {
+    if (!soundBtn) return;
+    const isM = getMuted();
+    soundBtn.textContent = isM ? '🔇 Music: MUTED' : '🔊 Music: ON';
+    soundBtn.style.color = isM ? '#fca5a5' : '#38bdf8';
+    soundBtn.style.borderColor = isM ? 'rgba(239, 68, 68, 0.4)' : 'rgba(56, 189, 248, 0.4)';
+    soundBtn.style.background = isM ? 'rgba(239, 68, 68, 0.12)' : 'rgba(56, 189, 248, 0.14)';
+  }
+  updateSoundBtn();
+
+  if (soundBtn) {
+    soundBtn.onclick = (e) => {
+      e.stopPropagation();
+      initAudio();
+      const currentMuted = getMuted();
+      if (currentMuted) {
+        setMuted(false);
+        startBackgroundMusic();
+      } else {
+        setMuted(true);
+      }
+      playClick();
+      updateSoundBtn();
+    };
+  }
+
   return {
     show(onPlay) {
+      updateSoundBtn();
       ov.classList.remove('home-hidden');
       const btn = document.getElementById('home-btn-play');
       btn.onclick = () => {

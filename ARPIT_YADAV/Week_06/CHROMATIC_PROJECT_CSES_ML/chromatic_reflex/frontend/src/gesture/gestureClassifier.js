@@ -85,6 +85,7 @@ function labelFrom(f) {
   if (extCount === 0) return thumbsUp ? "thumbs_up" : "fist";
   if (extCount === 4) return "open";
   if (extCount === 2 && up[1] && up[2]) return "two_fingers";
+  if (extCount === 2 && up[1] && up[4]) return "rock";
   if (extCount === 1 && up[1]) return "point";
   return "none";
 }
@@ -102,6 +103,8 @@ function confidenceFrom(f, label) {
     }
     case "two_fingers":
       return ((ext[1] + ext[2]) / 2) * 0.5 + ((curl(3) + curl(4)) / 2) * 0.5;
+    case "rock":
+      return ((ext[1] + ext[4]) / 2) * 0.5 + ((curl(2) + curl(3)) / 2) * 0.5;
     case "point":
       return ext[1] * 0.5 + ((curl(2) + curl(3) + curl(4)) / 3) * 0.5;
     case "open":
@@ -139,6 +142,7 @@ export const GESTURE_DISPLAY = {
   two_fingers: "Two Fingers",
   thumbs_up: "Thumbs Up",
   point: "Pointing",
+  rock: "Rock On",
   none: "None",
 };
 

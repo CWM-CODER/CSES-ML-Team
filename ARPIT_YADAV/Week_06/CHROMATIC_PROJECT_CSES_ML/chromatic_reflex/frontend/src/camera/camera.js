@@ -1,8 +1,8 @@
-export async function startCamera(videoEl, { width = 640, height = 480, fps = 60 } = {}) {
+export async function startCamera(videoEl, { width = 1280, height = 720, fps = 60 } = {}) {
   const stream = await navigator.mediaDevices.getUserMedia({
     video: {
-      width: { ideal: width },
-      height: { ideal: height },
+      width: { ideal: width, min: 640 },
+      height: { ideal: height, min: 480 },
       frameRate: { ideal: fps },
       facingMode: "user",
     },

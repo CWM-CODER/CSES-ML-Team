@@ -82,11 +82,12 @@ class Summary(BaseModel):
 
 class RoundData(BaseModel):
     round_number: int = Field(ge=1, le=20)
-    color: Literal["RED", "BLUE", "YELLOW", "GREEN"]
-    target_gesture: Literal["two_fingers", "fist", "thumbs_up", "point"]
+    color: str
+    target_gesture: str
     detected_gesture: Optional[str] = None
     outcome: Literal["correct", "wrong", "timeout"]
     reaction_time_ms: Optional[float] = None
+    word: Optional[str] = None
 
 
 class SessionPayload(BaseModel):
@@ -101,7 +102,8 @@ app = FastAPI(title="Chromatic Reflex API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -188,3 +190,13 @@ def player_history(name: str):
     if not rows:
         raise HTTPException(status_code=404, detail="Player not found")
     return {"player": name.strip(), "sessions": [dict(r) for r in rows]}
+
+
+# ---------- Unified Static Frontend Mount ----------
+try:
+    from fastapi.staticfiles import StaticFiles
+    FRONTEND_DIST = os.path.join(os.path.dirname(BASE_DIR), "frontend", "dist")
+    if os.path.isdir(FRONTEND_DIST):
+        app.mount("/", StaticFiles(directory=FRONTEND_DIST, html=True), name="frontend_dist")
+except Exception as e:
+    print(f"Static frontend not mounted: {e}")

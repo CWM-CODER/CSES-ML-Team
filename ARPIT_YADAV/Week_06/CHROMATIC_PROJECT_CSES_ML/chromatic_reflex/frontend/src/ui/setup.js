@@ -2,13 +2,13 @@ import { startCamera }      from '../camera/camera.js';
 import { createHandTracker } from '../hands/handTracker.js';
 import { drawHand }          from '../hands/overlay.js';
 
-const BOX = { x1: 0.18, y1: 0.05, x2: 0.82, y2: 0.95 };
-
 const MAPPING = [
   { color: 'RED',    label: 'Two Fingers', emoji: '✌️', hex: '#ef4444' },
-  { color: 'BLUE',   label: 'Fist',        emoji: '✊', hex: '#3b82f6' },
-  { color: 'YELLOW', label: 'Thumbs Up',   emoji: '👍', hex: '#eab308' },
+  { color: 'BLUE',   label: 'Fist',        emoji: '✊', hex: '#2563eb' },
+  { color: 'YELLOW', label: 'Thumbs Up',   emoji: '👍', hex: '#facc15' },
   { color: 'GREEN',  label: 'Pointing',    emoji: '☝️', hex: '#22c55e' },
+  { color: 'WHITE',  label: 'Rock On',     emoji: '🤘', hex: '#ffffff' },
+  { color: 'PURPLE', label: 'Open Hand',   emoji: '🖐️', hex: '#a855f7' },
 ];
 
 function sampleBrightness(videoEl) {
@@ -23,30 +23,6 @@ function sampleBrightness(videoEl) {
       s += d[i] * 0.299 + d[i + 1] * 0.587 + d[i + 2] * 0.114;
     return s / (d.length / 4);
   } catch { return 128; }
-}
-
-function handInBox(lm) {
-  if (!lm) return false;
-  const w = lm[0];
-  return w.x >= BOX.x1 && w.x <= BOX.x2 && w.y >= BOX.y1 && w.y <= BOX.y2;
-}
-
-function drawGuideBox(ctx) {
-  const { width: cw, height: ch } = ctx.canvas;
-  const x  = BOX.x1 * cw,          y  = BOX.y1 * ch;
-  const bw = (BOX.x2 - BOX.x1) * cw, bh = (BOX.y2 - BOX.y1) * ch;
-  ctx.save();
-  ctx.strokeStyle = 'rgba(0,230,118,0.8)';
-  ctx.lineWidth = 3;
-  ctx.setLineDash([14, 8]);
-  ctx.beginPath();
-  ctx.roundRect(x, y, bw, bh, 20);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.fillStyle = 'rgba(0,230,118,0.75)';
-  ctx.font = 'bold 14px Inter,system-ui,sans-serif';
-  ctx.fillText('Place hand here', x + 10, y + 24);
-  ctx.restore();
 }
 
 function buildMapGridHTML() {
@@ -74,16 +50,22 @@ function injectStyles() {
       transition: background 0.4s ease, align-items 0.4s ease;
     }
     #su-overlay.su-cam-mode {
-      background: rgba(6,6,18,0.18);
+      background: transparent;
+      backdrop-filter: none !important;
+      -webkit-backdrop-filter: none !important;
       align-items: flex-end;
+      pointer-events: none;
+    }
+    #su-overlay.su-cam-mode .su-card {
+      pointer-events: auto;
     }
 
     .su-card {
       background: rgba(255,255,255,0.055);
       border: 1px solid rgba(255,255,255,0.11);
       border-radius: 22px;
-      padding: 40px 48px;
-      width: min(520px, 92vw);
+      padding: 34px 38px;
+      width: min(620px, 94vw);
       box-shadow: 0 28px 72px rgba(0,0,0,0.65);
       display: flex; flex-direction: column; gap: 22px;
       backdrop-filter: blur(18px);
@@ -173,11 +155,14 @@ function injectStyles() {
     .su-hint { font-size: 12px; color: #475569; text-align: center; line-height: 1.5; }
 
     .su-map-grid {
-      display: grid; grid-template-columns: 1fr 1fr; gap: 14px;
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+    }
+    @media (max-width: 540px) {
+      .su-map-grid { grid-template-columns: repeat(2, 1fr); }
     }
     .su-map-card {
       border-radius: 14px;
-      padding: 16px 12px 14px;
+      padding: 14px 10px 12px;
       display: flex; flex-direction: column; align-items: center; gap: 6px;
       transition: transform .2s, box-shadow .2s;
     }
@@ -203,6 +188,36 @@ function injectStyles() {
       border: 2px solid #4ade80 !important;
       box-shadow: 0 8px 24px rgba(22, 163, 74, 0.35) !important;
     }
+    .su-card-purple {
+      background: linear-gradient(150deg, #9333ea 0%, #6b21a8 100%) !important;
+      border: 2px solid #c084fc !important;
+      box-shadow: 0 8px 24px rgba(147, 51, 234, 0.35) !important;
+    }
+    .su-card-white {
+      background: linear-gradient(150deg, #ffffff 0%, #e2e8f0 100%) !important;
+      border: 2px solid #ffffff !important;
+      box-shadow: 0 8px 24px rgba(255, 255, 255, 0.4) !important;
+    }
+    .su-card-white .su-map-color {
+      background: rgba(15, 23, 42, 0.12) !important;
+      color: #0f172a !important;
+      border: 1px solid rgba(15, 23, 42, 0.25) !important;
+      font-weight: 900 !important;
+    }
+    .su-card-white .su-map-label {
+      color: #0f172a !important;
+      font-weight: 800 !important;
+    }
+    .su-card-cyan {
+      background: linear-gradient(150deg, #0891b2 0%, #0e7490 100%) !important;
+      border: 2px solid #22d3ee !important;
+      box-shadow: 0 8px 24px rgba(6, 182, 212, 0.35) !important;
+    }
+    .su-card-orange {
+      background: linear-gradient(150deg, #ea580c 0%, #9a3412 100%) !important;
+      border: 2px solid #fb923c !important;
+      box-shadow: 0 8px 24px rgba(234, 88, 12, 0.35) !important;
+    }
 
     .su-map-color {
       font-size: 11px; font-weight: 800; letter-spacing: .12em;
@@ -211,8 +226,8 @@ function injectStyles() {
       padding: 3px 12px; border-radius: 99px;
       text-transform: uppercase;
     }
-    .su-map-emoji { font-size: 40px; line-height: 1.15; margin: 2px 0; }
-    .su-map-label { font-size: 14px; font-weight: 800; color: #ffffff; }
+    .su-map-emoji { font-size: 34px; line-height: 1.15; margin: 2px 0; }
+    .su-map-label { font-size: 13px; font-weight: 800; color: #ffffff; }
 
     #su-map-fab {
       position: fixed; bottom: 20px; right: 20px; z-index: 150;
@@ -230,8 +245,8 @@ function injectStyles() {
       position: fixed; bottom: 82px; right: 20px; z-index: 150;
       background: rgba(8,8,20,0.96);
       border: 1px solid rgba(255,255,255,0.11);
-      border-radius: 16px; padding: 18px 16px;
-      width: 230px;
+      border-radius: 16px; padding: 16px;
+      width: 320px;
       backdrop-filter: blur(14px);
       box-shadow: 0 12px 40px rgba(0,0,0,.65);
       font-family: 'Inter', system-ui, sans-serif;
@@ -242,11 +257,11 @@ function injectStyles() {
     #su-map-panel.su-visible {
       opacity: 1; transform: none; pointer-events: auto;
     }
-    #su-map-panel .su-map-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
-    #su-map-panel .su-map-card { padding: 10px 8px; }
-    #su-map-panel .su-map-emoji { font-size: 28px; }
-    #su-map-panel .su-map-label { font-size: 11px; }
-    #su-map-panel .su-map-color { font-size: 9px; }
+    #su-map-panel .su-map-grid { grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    #su-map-panel .su-map-card { padding: 8px 6px; }
+    #su-map-panel .su-map-emoji { font-size: 24px; }
+    #su-map-panel .su-map-label { font-size: 10px; }
+    #su-map-panel .su-map-color { font-size: 8px; padding: 2px 6px; }
     .su-panel-title {
       font-size: 10px; font-weight: 700; color: #475569;
       letter-spacing: .12em; text-transform: uppercase;
@@ -330,7 +345,7 @@ export function runSetup(videoEl, canvasEl) {
         <div>
           <div class="su-logo" style="font-size:20px">📷&nbsp; Camera Check</div>
           <p class="su-sub" style="margin-top:6px">
-            Hold your <strong>playing hand</strong> inside the green guide box.
+            Show your <strong>playing hand</strong> to the camera to verify tracking.
           </p>
         </div>
 
@@ -342,7 +357,7 @@ export function runSetup(videoEl, canvasEl) {
             <span class="su-ci">⏳</span> Lighting
           </div>
           <div class="su-check-row" id="su-cr-hand">
-            <span class="su-ci">⏳</span> Hand inside guide box
+            <span class="su-ci">⏳</span> Hand tracking
           </div>
         </div>
 
@@ -354,9 +369,8 @@ export function runSetup(videoEl, canvasEl) {
       <div class="su-card su-hidden" id="su-s3">
         <div class="su-logo">Gesture Map</div>
         <div class="su-sub">
-          Memorise these colour→gesture pairs. This card stays available
-          via the 🗺️ button during play, and appears automatically before
-          each timed round.
+          Memorise these colour→gesture pairs. ⚡ <strong>Stroop Reflex Challenge Active:</strong>
+          Word text and ink colour will conflict (e.g. the word "RED" painted in Blue ink). Always react to the <strong>INK COLOUR</strong>!
         </div>
 
         <div class="su-map-grid">${buildMapGridHTML()}</div>
@@ -387,6 +401,10 @@ export function runSetup(videoEl, canvasEl) {
 
       try {
         await startCamera(videoEl);
+        if (videoEl.videoWidth && videoEl.videoHeight) {
+          canvasEl.width = videoEl.videoWidth;
+          canvasEl.height = videoEl.videoHeight;
+        }
         setRow(crCam, 'ok', 'Camera access ✓');
       } catch {
         setRow(crCam, 'fail', 'Camera denied — check browser permissions');
@@ -410,10 +428,16 @@ export function runSetup(videoEl, canvasEl) {
         if (videoEl.readyState < 2) { rafId = requestAnimationFrame(loop); return; }
 
         ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
-        drawGuideBox(ctx);
 
         const det = tracker.detect(videoEl);
-        if (det.landmarks) drawHand(ctx, det.landmarks);
+        if (det.landmarks) {
+          drawHand(ctx, det.landmarks);
+          setRow(crHand, 'ok', 'Hand detected ✓');
+          handOk = true;
+        } else {
+          setRow(crHand, 'loading', 'Show your hand to the camera…');
+          handOk = false;
+        }
 
         const br = sampleBrightness(videoEl);
         if (br < 40) {
@@ -422,15 +446,6 @@ export function runSetup(videoEl, canvasEl) {
           setRow(crLight, 'warn', 'Too bright — reduce glare'); lightOk = false;
         } else {
           setRow(crLight, 'ok', 'Lighting ✓'); lightOk = true;
-        }
-
-        const inBox = handInBox(det.landmarks);
-        if (inBox) {
-          setRow(crHand, 'ok', 'Hand detected in guide box ✓'); handOk = true;
-        } else if (det.landmarks) {
-          setRow(crHand, 'warn', 'Move hand into the green box'); handOk = false;
-        } else {
-          setRow(crHand, 'loading', 'Show your hand to the camera…'); handOk = false;
         }
 
         btnNext.disabled = !(lightOk && handOk);

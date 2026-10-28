@@ -1,10 +1,15 @@
-import { initAudio, toggleMute, getMuted, playCompletion } from '../audio/soundManager.js';
+import { initAudio, toggleMute, getMuted, playCompletion, playLevelUp, playGauntlet } from '../audio/soundManager.js';
+import { createLeaderboardScreen } from './leaderboard.js';
 
 const TARGET_COLORS = {
-  RED:    { bg: '#ef4444', fg: '#ffffff', glow: 'rgba(239, 68, 68, 0.65)' },
-  BLUE:   { bg: '#3b82f6', fg: '#ffffff', glow: 'rgba(59, 130, 246, 0.65)' },
-  YELLOW: { bg: '#f59e0b', fg: '#451a03', glow: 'rgba(245, 158, 11, 0.65)' }, 
-  GREEN:  { bg: '#22c55e', fg: '#052e16', glow: 'rgba(34, 197, 94, 0.65)' }, 
+  RED:    { bg: '#ef4444', fg: '#ffffff', glow: 'rgba(239, 68, 68, 0.7)' },
+  BLUE:   { bg: '#2563eb', fg: '#ffffff', glow: 'rgba(37, 99, 235, 0.7)' },
+  YELLOW: { bg: '#facc15', fg: '#713f12', glow: 'rgba(250, 204, 21, 0.7)' }, 
+  GREEN:  { bg: '#22c55e', fg: '#052e16', glow: 'rgba(34, 197, 94, 0.7)' }, 
+  WHITE:  { bg: '#ffffff', fg: '#090d16', glow: 'rgba(255, 255, 255, 0.85)' },
+  PURPLE: { bg: '#a855f7', fg: '#ffffff', glow: 'rgba(168, 85, 247, 0.7)' },
+  CYAN:   { bg: '#06b6d4', fg: '#083344', glow: 'rgba(6, 182, 212, 0.7)' },
+  ORANGE: { bg: '#f97316', fg: '#ffffff', glow: 'rgba(249, 115, 22, 0.7)' },
 };
 
 const GESTURE_DISPLAY_NAMES = {
@@ -13,6 +18,7 @@ const GESTURE_DISPLAY_NAMES = {
   thumbs_up:   'Thumbs Up',
   point:       'Pointing',
   open:        'Open Hand',
+  rock:        'Rock On',
   none:        'None',
 };
 
@@ -210,16 +216,35 @@ function injectGameStyles() {
       100% { opacity: 0; transform: translateX(-50%) translateY(-6px); }
     }
 
-    .gu-btn, .gu-bar-exit, .gu-bar-mute {
+    .gu-btn, .gu-bar-exit, .gu-bar-mute, .gu-bar-pause {
       transition: transform 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
       font-family: inherit;
       cursor: pointer;
     }
-    .gu-btn:hover, .gu-bar-exit:hover, .gu-bar-mute:hover {
+    .gu-btn:hover, .gu-bar-exit:hover, .gu-bar-mute:hover, .gu-bar-pause:hover {
       transform: scale(1.05);
     }
-    .gu-btn:active, .gu-bar-exit:active, .gu-bar-mute:active {
+    .gu-btn:active, .gu-bar-exit:active, .gu-bar-mute:active, .gu-bar-pause:active {
       transform: scale(0.95);
+    }
+
+    .gu-bar-pause {
+      background: rgba(234, 179, 8, 0.12);
+      border: 1.5px solid rgba(234, 179, 8, 0.45);
+      color: #fde047;
+      padding: 6px 14px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 800;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .gu-bar-pause:hover {
+      background: rgba(234, 179, 8, 0.25);
+      border-color: #eab308;
+      color: #fff;
+      box-shadow: 0 0 12px rgba(234, 179, 8, 0.4);
     }
 
     .gu-bar-exit {
@@ -267,7 +292,7 @@ function injectGameStyles() {
 
     #gu-cue {
       width: 100%;
-      height: 74px;
+      height: 84px;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -277,15 +302,48 @@ function injectGameStyles() {
       box-sizing: border-box;
       position: relative;
       overflow: hidden;
-      transition: background 0.15s ease, box-shadow 0.25s ease;
+      transition: background 0.15s ease, box-shadow 0.25s ease, border-color 0.25s ease;
     }
     #gu-cue-text {
-      font-size: 32px;
-      font-weight: 900;
-      letter-spacing: 0.06em;
-      text-align: center;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       user-select: none;
-      transition: color 0.15s ease, transform 0.2s ease;
+    }
+
+    .gu-stroop-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      width: 100%;
+      height: 100%;
+      user-select: none;
+    }
+    .gu-stroop-badge {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      padding: 2px 12px;
+      border-radius: 999px;
+      background: rgba(0, 0, 0, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+    .gu-stroop-word {
+      font-size: 34px;
+      font-weight: 900;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      line-height: 1.1;
+      transition: color 0.15s ease, transform 0.2s ease, text-shadow 0.2s ease;
     }
 
     #gu-cue.gu-cue-active {
@@ -473,6 +531,193 @@ function injectGameStyles() {
       font-family: 'JetBrains Mono', monospace; text-align: center;
     }
 
+    #gu-pause-modal {
+      position: fixed; inset: 0; z-index: 350;
+      background: rgba(4, 6, 18, 0.88);
+      backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px; box-sizing: border-box;
+      animation: gu-pause-fadein 0.2s ease;
+    }
+    #gu-pause-modal.gu-hidden { display: none; }
+    @keyframes gu-pause-fadein {
+      from { opacity: 0; transform: scale(0.97); }
+      to   { opacity: 1; transform: scale(1); }
+    }
+    .gu-pause-card {
+      background: rgba(15, 23, 42, 0.95);
+      border: 1.5px solid rgba(234, 179, 8, 0.4);
+      border-radius: 24px; padding: 32px 36px;
+      width: min(480px, 92vw); color: #f1f5f9;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), 0 0 30px rgba(234, 179, 8, 0.2);
+      display: flex; flex-direction: column; align-items: center; gap: 18px;
+      text-align: center;
+    }
+    .gu-pause-icon { font-size: 42px; line-height: 1; filter: drop-shadow(0 0 14px rgba(234, 179, 8, 0.6)); }
+    .gu-pause-title { font-size: 26px; font-weight: 900; margin: 0; color: #fff; letter-spacing: -0.02em; }
+    .gu-pause-sub { font-size: 14px; color: #94a3b8; margin: 0; line-height: 1.5; }
+    .gu-pause-stats {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; width: 100%;
+      background: rgba(255, 255, 255, 0.04); border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px; padding: 12px;
+    }
+    .gu-pause-stats div { display: flex; flex-direction: column; gap: 4px; }
+    .gu-pause-stats span { font-size: 11px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.08em; }
+    .gu-pause-stats strong { font-size: 17px; font-weight: 900; color: #f8fafc; }
+    .gu-pause-actions { display: flex; flex-direction: column; gap: 10px; width: 100%; }
+    .gu-pause-btn {
+      padding: 12px 0; border-radius: 12px; border: none; font-size: 14px;
+      font-weight: 800; cursor: pointer; font-family: inherit; transition: all 0.2s ease;
+    }
+    .gu-pause-btn.gu-pause-primary {
+      background: linear-gradient(135deg, #eab308, #f59e0b); color: #451a03;
+      box-shadow: 0 4px 18px rgba(234, 179, 8, 0.35);
+    }
+    .gu-pause-btn.gu-pause-primary:hover {
+      transform: translateY(-2px); box-shadow: 0 8px 24px rgba(234, 179, 8, 0.5);
+    }
+    .gu-pause-btn.gu-pause-secondary {
+      background: rgba(255, 255, 255, 0.08); color: #cbd5e1; border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    .gu-pause-btn.gu-pause-secondary:hover {
+      background: rgba(255, 255, 255, 0.14); color: #fff;
+    }
+    .gu-pause-btn.gu-pause-danger {
+      background: rgba(239, 68, 68, 0.12); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+    .gu-pause-btn.gu-pause-danger:hover {
+      background: rgba(239, 68, 68, 0.22); color: #fff;
+    }
+
+    #gu-milestone-modal {
+      position: fixed; inset: 0; z-index: 280;
+      background: rgba(4, 7, 20, 0.90);
+      backdrop-filter: blur(10px);
+      display: flex; align-items: center; justify-content: center;
+      padding: 20px; box-sizing: border-box;
+      pointer-events: auto;
+      animation: gu-milestone-fadein 0.25s ease-out;
+    }
+    #gu-milestone-modal.gu-hidden { display: none; }
+    @keyframes gu-milestone-fadein {
+      from { opacity: 0; }
+      to   { opacity: 1; }
+    }
+    .gu-milestone-card {
+      border-radius: 28px; padding: 36px 40px 30px;
+      width: min(560px, 92vw); text-align: center;
+      display: flex; flex-direction: column; align-items: center; gap: 14px;
+      animation: gu-milestone-pop 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+      box-sizing: border-box;
+      user-select: none;
+    }
+    .gu-milestone-speed {
+      background: radial-gradient(circle at 50% 20%, rgba(56, 189, 248, 0.25) 0%, rgba(10, 18, 36, 0.96) 80%);
+      border: 2px solid #38bdf8;
+      box-shadow: 0 0 50px rgba(56, 189, 248, 0.4), 0 20px 60px rgba(0, 0, 0, 0.8);
+    }
+    .gu-milestone-fire {
+      background: radial-gradient(circle at 50% 20%, rgba(239, 68, 68, 0.3) 0%, rgba(24, 10, 16, 0.96) 80%);
+      border: 2px solid #f97316;
+      box-shadow: 0 0 60px rgba(249, 115, 22, 0.5), 0 0 30px rgba(239, 68, 68, 0.35), 0 20px 60px rgba(0, 0, 0, 0.8);
+    }
+    .gu-ms-slam-word {
+      font-size: clamp(42px, 9vw, 64px);
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      line-height: 1;
+      text-transform: uppercase;
+      animation: gu-ms-slam 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
+      margin-bottom: 2px;
+    }
+    .gu-ms-word-cyan {
+      color: #38bdf8;
+      text-shadow: 0 0 25px rgba(56, 189, 248, 0.85), 0 0 50px rgba(14, 165, 233, 0.5);
+    }
+    .gu-ms-word-fire {
+      color: #ffedd5;
+      background: linear-gradient(180deg, #fef08a 0%, #f97316 45%, #ef4444 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 24px rgba(249, 115, 22, 0.9));
+    }
+    .gu-milestone-badge {
+      font-size: 11px; font-weight: 800; letter-spacing: 0.14em;
+      text-transform: uppercase; padding: 5px 16px; border-radius: 99px;
+    }
+    .gu-milestone-speed .gu-milestone-badge {
+      background: rgba(56, 189, 248, 0.18); color: #7dd3fc; border: 1px solid rgba(56, 189, 248, 0.45);
+    }
+    .gu-milestone-fire .gu-milestone-badge {
+      background: rgba(239, 68, 68, 0.22); color: #fca5a5; border: 1px solid rgba(239, 68, 68, 0.55);
+    }
+    .gu-milestone-title {
+      font-size: clamp(22px, 4.5vw, 30px); font-weight: 900; letter-spacing: -0.02em; margin: 0; color: #fff;
+    }
+    .gu-milestone-sub {
+      font-size: 15px; color: #cbd5e1; margin: 0; line-height: 1.55; max-width: 460px;
+    }
+    .gu-ms-actions {
+      display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; margin-top: 8px;
+    }
+    .gu-ms-btn {
+      width: 100%; max-width: 380px; padding: 14px 24px; border-radius: 14px; border: none;
+      font-size: 15px; font-weight: 800; font-family: inherit; cursor: pointer;
+      display: flex; align-items: center; justify-content: center; gap: 8px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .gu-ms-btn:hover {
+      transform: scale(1.03);
+    }
+    .gu-ms-btn-cyan {
+      background: linear-gradient(135deg, #0284c7, #38bdf8); color: #031124;
+      box-shadow: 0 4px 20px rgba(56, 189, 248, 0.45);
+    }
+    .gu-ms-btn-cyan:hover {
+      box-shadow: 0 6px 28px rgba(56, 189, 248, 0.65);
+    }
+    .gu-ms-btn-fire {
+      background: linear-gradient(135deg, #ea580c, #f59e0b); color: #3b1104;
+      box-shadow: 0 4px 20px rgba(249, 115, 22, 0.5);
+    }
+    .gu-ms-btn-fire:hover {
+      box-shadow: 0 6px 28px rgba(249, 115, 22, 0.7);
+    }
+    .gu-ms-countdown-pill {
+      font-size: 13px; font-weight: 800; opacity: 0.85;
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .gu-ms-progress-track {
+      width: 100%; max-width: 380px; height: 5px;
+      background: rgba(255, 255, 255, 0.12);
+      border-radius: 99px; overflow: hidden;
+    }
+    .gu-ms-progress-fill {
+      height: 100%; width: 100%;
+      border-radius: 99px;
+      transition: width 0.05s linear;
+    }
+    .gu-ms-fill-cyan {
+      background: #38bdf8;
+      box-shadow: 0 0 10px #38bdf8;
+    }
+    .gu-ms-fill-fire {
+      background: #f97316;
+      box-shadow: 0 0 10px #f97316;
+    }
+    .gu-ms-hint {
+      font-size: 12px; color: #94a3b8; font-weight: 600; margin: 0;
+    }
+    @keyframes gu-ms-slam {
+      0%   { transform: scale(0.3) translateY(-18px); opacity: 0; }
+      70%  { transform: scale(1.16) translateY(2px); opacity: 1; }
+      100% { transform: scale(1) translateY(0); opacity: 1; }
+    }
+    @keyframes gu-milestone-pop {
+      from { transform: scale(0.85); opacity: 0; }
+      to   { transform: scale(1); opacity: 1; }
+    }
+
     #gu-results {
       position: fixed; inset: 0; z-index: 300;
       background: rgba(4, 6, 16, 0.95);
@@ -628,6 +873,7 @@ export function createGameUI(stageEl, hudEl, onExit) {
     </div>
 
     <div style="display: flex; gap: 8px; align-items: center;">
+      <button class="gu-bar-pause" id="gu-btn-pause" title="Pause Game (Space or P)">⏸ Pause</button>
       <button class="gu-bar-mute" id="gu-btn-mute" title="Toggle Sound">🔊</button>
       <button class="gu-bar-exit" id="gu-btn-exit" title="Exit to Home Screen">✕ Exit</button>
     </div>
@@ -712,11 +958,59 @@ export function createGameUI(stageEl, hudEl, onExit) {
       </div>
       <div class="gu-res-actions">
         <button class="gu-res-btn gu-res-primary" id="gu-res-play-again">Play Again 🎮</button>
+        <button class="gu-res-btn gu-res-secondary gu-res-lb-btn" id="gu-res-leaderboard" style="border-color:#38bdf8;color:#7dd3fc;background:rgba(56,189,248,0.12);">🏆 View Leaderboard</button>
         <button class="gu-res-btn gu-res-secondary" id="gu-res-exit">Exit to Home 🏠</button>
       </div>
     </div>
   `;
   document.body.appendChild(results);
+
+  const pauseModal = document.createElement('div');
+  pauseModal.id = 'gu-pause-modal';
+  pauseModal.classList.add('gu-hidden');
+  pauseModal.innerHTML = `
+    <div class="gu-pause-card">
+      <div class="gu-pause-icon">⏸️</div>
+      <h2 class="gu-pause-title">Game Paused</h2>
+      <p class="gu-pause-sub">Take a breath. Press <strong>Resume</strong> or <strong>Space</strong> when ready.</p>
+      <div class="gu-pause-stats">
+        <div><span>Round</span><strong id="gu-pstat-round">–</strong></div>
+        <div><span>Score</span><strong id="gu-pstat-score">0</strong></div>
+        <div><span>Streak</span><strong id="gu-pstat-streak">🔥 0</strong></div>
+      </div>
+      <div class="gu-pause-actions">
+        <button class="gu-pause-btn gu-pause-primary" id="gu-pause-btn-resume">▶ Resume Game</button>
+        <button class="gu-pause-btn gu-pause-secondary" id="gu-pause-btn-restart">🔄 Restart Benchmark</button>
+        <button class="gu-pause-btn gu-pause-danger" id="gu-pause-btn-exit">🏠 Exit to Home</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(pauseModal);
+
+  const milestoneModal = document.createElement('div');
+  milestoneModal.id = 'gu-milestone-modal';
+  milestoneModal.classList.add('gu-hidden');
+  document.body.appendChild(milestoneModal);
+
+  const leaderboard = createLeaderboardScreen();
+
+  let activeMilestoneDismiss = null;
+  let onPauseToggleHandler = null;
+  function handleKeydown(e) {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (activeMilestoneDismiss) {
+      if (e.code === 'Space' || e.key === 'Enter') {
+        e.preventDefault();
+        activeMilestoneDismiss();
+        return;
+      }
+    }
+    if (e.code === 'Space' || e.key === 'p' || e.key === 'P') {
+      e.preventDefault();
+      onPauseToggleHandler?.();
+    }
+  }
+  window.addEventListener('keydown', handleKeydown);
 
   const roundVal         = document.getElementById('gu-round-val');
   const roundProgressBar = document.getElementById('gu-round-progress-bar');
@@ -864,9 +1158,9 @@ export function createGameUI(stageEl, hudEl, onExit) {
     showArm() {
       clearTimeout(timeoutWarnTimer);
       cue.style.background = 'rgba(10, 14, 26, 0.95)';
+      cue.style.border = '1px solid rgba(255, 255, 255, 0.08)';
       cue.className = '';
-      cueText.style.color = 'rgba(255, 255, 255, 0.4)';
-      cueText.textContent = 'Lower hand to arm…';
+      cueText.innerHTML = '<span style="color: rgba(255, 255, 255, 0.4); font-size: 18px; font-weight: 700;">Lower hand to arm…</span>';
       timeoutBar.style.width = '0%';
       timeoutBar.style.transition = 'none';
       timeoutBar.classList.remove('gu-timeout-red');
@@ -876,6 +1170,7 @@ export function createGameUI(stageEl, hudEl, onExit) {
     showDelay() {
       clearTimeout(timeoutWarnTimer);
       cue.style.background = 'rgba(10, 14, 26, 0.95)';
+      cue.style.border = '1px solid rgba(255, 255, 255, 0.08)';
       cue.className = '';
       cueText.innerHTML = '<div class="gu-dots"><div class="gu-dot"></div><div class="gu-dot"></div><div class="gu-dot"></div></div>';
       timeoutBar.style.width = '0%';
@@ -883,45 +1178,65 @@ export function createGameUI(stageEl, hudEl, onExit) {
       setStageBorderColor('rgba(56, 189, 248, 0.4)', 'rgba(56, 189, 248, 0.2)');
     },
 
-    showCue(colorName, timeoutMs) {
+    showCue(cueInfo, timeoutMs) {
       clearTimeout(timeoutWarnTimer);
-      const meta = TARGET_COLORS[colorName] ?? { bg: '#3b82f6', fg: '#fff', glow: 'rgba(59, 130, 246, 0.6)' };
+      const isStroop = typeof cueInfo === 'object' && cueInfo !== null;
+      const inkColor = isStroop ? cueInfo.inkColor : cueInfo;
+      const wordColor = isStroop ? cueInfo.wordColor : cueInfo;
+      const meta = TARGET_COLORS[inkColor] ?? { bg: '#3b82f6', fg: '#fff', glow: 'rgba(59, 130, 246, 0.6)' };
 
-      cue.style.background = meta.bg;
+      cue.style.background = `radial-gradient(ellipse at center, ${meta.bg}22 0%, rgba(10, 14, 26, 0.96) 75%)`;
+      cue.style.border = `2px solid ${meta.bg}`;
       cue.style.setProperty('--banner-glow', meta.glow);
       cue.classList.remove('gu-cue-active');
       void cue.offsetWidth; 
       cue.classList.add('gu-cue-active');
 
-      cueText.style.color = meta.fg;
-      cueText.textContent = colorName.toUpperCase();
+      cueText.innerHTML = `
+        <div class="gu-stroop-box">
+          <div class="gu-stroop-badge" style="color: ${meta.bg}; border-color: ${meta.bg}88;">
+            ⚡ MATCH INK COLOR
+          </div>
+          <div class="gu-stroop-word" style="color: ${meta.bg}; text-shadow: 0 0 24px ${meta.glow}, 0 2px 4px rgba(0,0,0,0.8);">
+            ${wordColor.toUpperCase()}
+          </div>
+        </div>
+      `;
 
       setStageBorderColor(meta.bg, meta.glow);
 
       timeoutBar.classList.remove('gu-timeout-red');
       timeoutBar.style.transition = 'none';
       timeoutBar.style.width = '100%';
+    },
 
-      requestAnimationFrame(() => {
-        timeoutBar.style.transition = `width ${timeoutMs}ms linear`;
-        timeoutBar.style.width = '0%';
-      });
-
-      timeoutWarnTimer = setTimeout(() => {
+    updateTimeoutBar(elapsedMs, totalMs) {
+      clearTimeout(timeoutWarnTimer);
+      const remainingRatio = Math.max(0, Math.min(1, 1 - elapsedMs / totalMs));
+      timeoutBar.style.transition = 'none';
+      timeoutBar.style.width = `${(remainingRatio * 100).toFixed(1)}%`;
+      if (remainingRatio <= 0.25) {
         timeoutBar.classList.add('gu-timeout-red');
-      }, timeoutMs * 0.75);
+      } else {
+        timeoutBar.classList.remove('gu-timeout-red');
+      }
     },
 
     showFalseStart() {
       cue.classList.add('gu-false-start');
-      cueText.textContent = '⚠️  FALSE START';
-      cueText.style.color = '#f59e0b';
+      cue.style.border = '2px solid #f59e0b';
+      cueText.innerHTML = '<span style="color: #f59e0b; font-size: 24px; font-weight: 900;">⚠️ FALSE START</span>';
       setTimeout(() => cue.classList.remove('gu-false-start'), 1200);
     },
 
-    showFeedback(type, rt, _targetGesture, detectedGesture) {
+    showFeedback(type, rt, targetGesture, detectedGesture, cueDetails) {
       clearTimeout(fbTimer);
       clearTimeout(timeoutWarnTimer);
+
+      const isStroop = typeof cueDetails === 'object' && cueDetails !== null;
+      const inkColor = isStroop ? cueDetails.inkColor : (cueDetails || '');
+      const wordColor = isStroop ? cueDetails.wordColor : (cueDetails || '');
+      const targetName = GESTURE_DISPLAY_NAMES[targetGesture] ?? targetGesture;
 
       const showedText = (detectedGesture && detectedGesture !== 'none')
         ? (GESTURE_DISPLAY_NAMES[detectedGesture] ?? detectedGesture)
@@ -934,20 +1249,23 @@ export function createGameUI(stageEl, hudEl, onExit) {
           icon: '✅',
           label: 'CORRECT!',
           rtText: rt != null ? `${Math.round(rt)} ms` : '',
+          detail: `Ink was ${inkColor} (${targetName}) • Word was ${wordColor}`,
         },
         wrong: {
           bg: '#dc2626',
           borderColor: '#ef4444',
           icon: '❌',
-          label: 'WRONG',
-          rtText: `You showed: ${showedText}`, 
+          label: 'STROOP TRICK!',
+          rtText: `Target ink: ${inkColor} (${targetName})`,
+          detail: `You showed: ${showedText}`,
         },
         timeout: {
           bg: '#7c3aed',
           borderColor: '#a855f7',
           icon: '⏱️',
           label: 'TOO SLOW',
-          rtText: 'Timeout',
+          rtText: `Target ink: ${inkColor} (${targetName})`,
+          detail: 'Timeout',
         },
       };
 
@@ -955,7 +1273,7 @@ export function createGameUI(stageEl, hudEl, onExit) {
       fbBg.style.background = cfg.bg;
       fbIcon.textContent   = cfg.icon;
       fbResult.textContent = cfg.label;
-      fbRt.textContent     = cfg.rtText;
+      fbRt.innerHTML = `<div>${cfg.rtText}</div><div style="font-size:13px;opacity:0.85;margin-top:4px;font-weight:600;">${cfg.detail}</div>`;
       fbEl.classList.add('gu-show');
 
       setStageBorderColor(cfg.borderColor, cfg.bg);
@@ -1044,10 +1362,12 @@ export function createGameUI(stageEl, hudEl, onExit) {
       hist.innerHTML = rounds.map((r, i) => {
         const cls = r.outcome;
         const rtStr = r.rt != null ? `${Math.round(r.rt)} ms` : (r.outcome === 'timeout' ? 'timeout' : '–');
-        const outcomeLabel = r.outcome ? r.outcome.toUpperCase() : '–';
+        const ink = r.color ?? '';
+        const word = r.word && r.word !== r.color ? ` <small style="color:#94a3b8;font-weight:600;">(word: ${r.word})</small>` : '';
+        const outcomeLabel = r.outcome === 'correct' ? '✓ Correct' : (r.outcome === 'wrong' ? '✗ Wrong' : '⏱ Too Slow');
         return `<div class="gu-res-row gu-${cls}">
           <span class="gu-rn">${i + 1}</span>
-          <span>${r.color ?? ''}</span>
+          <span>${ink}${word}</span>
           <span>${outcomeLabel}</span>
           <span class="gu-rt">${rtStr}</span>
         </div>`;
@@ -1060,13 +1380,157 @@ export function createGameUI(stageEl, hudEl, onExit) {
         onPlayAgain?.();
       };
 
+      document.getElementById('gu-res-leaderboard').onclick = () => {
+        results.classList.add('gu-hidden');
+        leaderboard.show(() => {
+          results.classList.remove('gu-hidden');
+        });
+      };
+
       document.getElementById('gu-res-exit').onclick = () => {
         results.classList.add('gu-hidden');
         (onExitCallback ?? currentExitHandler)?.();
       };
     },
 
+    showMilestoneAlert(type, callback) {
+      const isFire = type === 'final5';
+      if (isFire) {
+        playGauntlet();
+      } else {
+        playLevelUp();
+      }
+
+      const word = isFire ? 'OVERDRIVE!' : 'YEAH!';
+      const badge = isFire ? '🔥 FINAL 5 GAUNTLET • MAXIMUM FOCUS' : '⚡ LEVEL 2 UNLOCKED • SPEED INCREASE';
+      const title = isFire ? "NOW LET'S SEE HOW FAST YOU REALLY ARE!" : 'YOU CRUSHED THE EASY LEVEL!';
+      const sub = isFire
+        ? 'Final 5 rounds! Reaction speed is pushed to the limit with ultra-short windows. Zero room for error — take 20 seconds to rest your hand and lock in your focus before the gauntlet!'
+        : 'Warmup rounds cleared! Response windows are now tighter and tempo is stepped up. Relax your hand — you have 20 seconds to mentally prepare for the speed boost!';
+      const btnText = isFire ? 'BRING IT ON! 🔥' : 'READY FOR LEVEL 2! ⚡';
+      const themeClass = isFire ? 'gu-milestone-fire' : 'gu-milestone-speed';
+      const wordClass = isFire ? 'gu-ms-word-fire' : 'gu-ms-word-cyan';
+      const btnClass = isFire ? 'gu-ms-btn-fire' : 'gu-ms-btn-cyan';
+      const fillClass = isFire ? 'gu-ms-fill-fire' : 'gu-ms-fill-cyan';
+
+      milestoneModal.innerHTML = `
+        <div class="gu-milestone-card ${themeClass}">
+          <div class="gu-ms-slam-word ${wordClass}">${word}</div>
+          <div class="gu-milestone-badge">${badge}</div>
+          <h2 class="gu-milestone-title">${title}</h2>
+          <p class="gu-milestone-sub">${sub}</p>
+          <div class="gu-ms-actions">
+            <button class="gu-ms-btn ${btnClass}" id="gu-ms-action-btn">
+              <span>${btnText}</span>
+              <span class="gu-ms-countdown-pill" id="gu-ms-timer-pill">(20s)</span>
+            </button>
+            <div class="gu-ms-progress-track">
+              <div class="gu-ms-progress-fill ${fillClass}" id="gu-ms-progress-bar"></div>
+            </div>
+            <p class="gu-ms-hint">Starts in 20s • Press <strong>Space</strong> or click to start now</p>
+          </div>
+        </div>
+      `;
+
+      milestoneModal.classList.remove('gu-hidden');
+
+      const DURATION_MS = 20000;
+      const startTime = performance.now();
+      let animFrame = null;
+      let finished = false;
+
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        if (animFrame) cancelAnimationFrame(animFrame);
+        activeMilestoneDismiss = null;
+        milestoneModal.classList.add('gu-hidden');
+        callback?.();
+      };
+
+      activeMilestoneDismiss = finish;
+
+      const actionBtn = document.getElementById('gu-ms-action-btn');
+      if (actionBtn) {
+        actionBtn.onclick = (e) => {
+          e.stopPropagation();
+          finish();
+        };
+      }
+
+      milestoneModal.onclick = (e) => {
+        if (e.target.id === 'gu-milestone-modal') finish();
+      };
+
+      const timerPill = document.getElementById('gu-ms-timer-pill');
+      const progressBar = document.getElementById('gu-ms-progress-bar');
+
+      function tick() {
+        if (finished) return;
+        const elapsed = performance.now() - startTime;
+        const remaining = Math.max(0, DURATION_MS - elapsed);
+        const ratio = remaining / DURATION_MS;
+
+        if (progressBar) {
+          progressBar.style.width = `${(ratio * 100).toFixed(1)}%`;
+        }
+        if (timerPill) {
+          timerPill.textContent = `(${Math.ceil(remaining / 1000)}s)`;
+        }
+
+        if (remaining <= 0) {
+          finish();
+        } else {
+          animFrame = requestAnimationFrame(tick);
+        }
+      }
+
+      animFrame = requestAnimationFrame(tick);
+    },
+
+    setPauseHandler(handler) {
+      onPauseToggleHandler = handler;
+      document.getElementById('gu-btn-pause')?.addEventListener('click', () => {
+        onPauseToggleHandler?.();
+      });
+    },
+
+    showPauseModal(info, onResume, onRestart, onExit) {
+      document.getElementById('gu-pstat-round').textContent = info?.round || '-';
+      document.getElementById('gu-pstat-score').textContent = info?.score != null ? info.score : '0';
+      document.getElementById('gu-pstat-streak').textContent = `🔥 ${info?.streak || 0}`;
+      pauseModal.classList.remove('gu-hidden');
+
+      const resumeBtn = document.getElementById('gu-pause-btn-resume');
+      const restartBtn = document.getElementById('gu-pause-btn-restart');
+      const exitBtn = document.getElementById('gu-pause-btn-exit');
+
+      resumeBtn.onclick = () => {
+        pauseModal.classList.add('gu-hidden');
+        onResume?.();
+      };
+      restartBtn.onclick = () => {
+        pauseModal.classList.add('gu-hidden');
+        onRestart?.();
+      };
+      exitBtn.onclick = () => {
+        pauseModal.classList.add('gu-hidden');
+        onExit?.();
+      };
+    },
+
+    hidePauseModal() {
+      pauseModal.classList.add('gu-hidden');
+    },
+
     destroy() {
+      if (activeMilestoneDismiss) {
+        activeMilestoneDismiss = null;
+      }
+      window.removeEventListener('keydown', handleKeydown);
+      pauseModal.remove();
+      milestoneModal.remove();
+      leaderboard.hide();
       clearTimeout(fbTimer);
       clearTimeout(timeoutWarnTimer);
       if (activeScoreRaf) cancelAnimationFrame(activeScoreRaf);

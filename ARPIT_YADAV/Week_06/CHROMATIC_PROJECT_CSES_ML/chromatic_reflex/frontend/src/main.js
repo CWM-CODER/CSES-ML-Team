@@ -3,7 +3,7 @@ import { runSetup }                         from './ui/setup.js';
 import { createGameUI }                  from './ui/gameUI.js';
 import { runCalibration }                from './game/calibration.js';
 import { runGame }                       from './game/gameLoop.js';
-import { initAudio, enableClickSounds }  from "./audio/soundManager.js";
+import { initAudio, enableClickSounds, startBackgroundMusic }  from "./audio/soundManager.js";
 enableClickSounds(); 
 
 const video  = document.getElementById('video');
@@ -14,15 +14,14 @@ const hud    = document.getElementById('hud');
 async function main() {
   hud.textContent = '';
 
-  const onFirstInteraction = () => {
+  const triggerAudio = () => {
     initAudio();
-    window.removeEventListener('click', onFirstInteraction);
-    window.removeEventListener('keydown', onFirstInteraction);
-    window.removeEventListener('touchstart', onFirstInteraction);
+    startBackgroundMusic();
   };
-  window.addEventListener('click', onFirstInteraction);
-  window.addEventListener('keydown', onFirstInteraction);
-  window.addEventListener('touchstart', onFirstInteraction);
+  window.addEventListener('pointerdown', triggerAudio, { passive: true });
+  window.addEventListener('click', triggerAudio, { passive: true });
+  window.addEventListener('keydown', triggerAudio, { passive: true });
+  window.addEventListener('touchstart', triggerAudio, { passive: true });
 
   const homeScreen = createHomeScreen();
 
@@ -41,6 +40,7 @@ async function main() {
           ui.destroy();
           ui = null;
         }
+        startBackgroundMusic();
         launchGameFlow();
       }
 
