@@ -10,9 +10,8 @@ export function initAudio() {
 
     master = ctx.createGain();
     master.gain.value = muted ? 0 : 0.8;
-    const comp = ctx.createDynamicsCompressor();
-    master.connect(comp);
-    comp.connect(ctx.destination);
+    // Direct destination connection
+    master.connect(ctx.destination);
   }
   if (ctx.state === "suspended") {
     ctx.resume().catch(() => {});
@@ -51,7 +50,12 @@ export const MUSIC_TRACKS = [
   { id: 'off',       name: 'Music: Off 🔇' },
 ];
 
-let currentTrackId = localStorage.getItem('chromatic_music_track') || 'arcade';
+let currentTrackId = 'arcade';
+try {
+  const saved = localStorage.getItem('chromatic_music_track');
+  if (saved && saved !== 'off') currentTrackId = saved;
+} catch (e) {}
+
 let bgGain = null;
 let bgRunning = false;
 let bgTimer = null;
@@ -64,22 +68,21 @@ export function getCurrentTrack() {
 export function setMusicTrack(trackId) {
   if (trackId === 'off') {
     currentTrackId = 'off';
-    localStorage.setItem('chromatic_music_track', 'off');
+    try { localStorage.setItem('chromatic_music_track', 'off'); } catch (e) {}
     stopBackgroundMusic();
     return getCurrentTrack();
   }
 
   currentTrackId = trackId;
-  localStorage.setItem('chromatic_music_track', trackId);
+  try { localStorage.setItem('chromatic_music_track', trackId); } catch (e) {}
 
-  if (bgRunning) {
-    stopBackgroundMusic();
-    startBackgroundMusic();
-  }
+  stopBackgroundMusic();
+  startBackgroundMusic();
   return getCurrentTrack();
 }
 
 export function cycleMusicTrack() {
+  initAudio();
   const currentIndex = MUSIC_TRACKS.findIndex(t => t.id === currentTrackId);
   const nextTrack = MUSIC_TRACKS[(currentIndex + 1) % MUSIC_TRACKS.length];
   return setMusicTrack(nextTrack.id);
@@ -349,7 +352,7 @@ function onBgStep() {
     return;
   }
 
-  const now = ctx.currentTime;
+  const now = ctx.currentTime + 0.025;
   if (currentTrackId === 'arcade') {
     stepArcadeChiptune(now);
   } else if (currentTrackId === 'synthwave') {
@@ -403,7 +406,7 @@ export const SOUND_COOLDOWN_MS = 600;
 
 function tone({ freq, endFreq, type = "sine", start = 0, dur = 0.2, vol = 0.3, filterHz }) {
   if (!ctx || muted) return;
-  const t0 = ctx.currentTime + start;
+  const t0 = Math.max(ctx.currentTime, ctx.currentTime + start) + 0.01;
 
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
@@ -412,7 +415,7 @@ function tone({ freq, endFreq, type = "sine", start = 0, dur = 0.2, vol = 0.3, f
   if (endFreq) osc.frequency.exponentialRampToValueAtTime(endFreq, t0 + dur);
 
   gain.gain.setValueAtTime(0.0001, t0);
-  gain.gain.exponentialRampToValueAtTime(vol, t0 + 0.01);
+  gain.gain.linearRampToValueAtTime(vol, t0 + 0.01);
   gain.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
 
   let node = osc;
