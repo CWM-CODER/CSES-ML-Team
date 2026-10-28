@@ -360,6 +360,7 @@ export function createHomeScreen() {
       updateSoundBtn();
     };
   }
+  window.addEventListener('chromatic-music-changed', updateSoundBtn);
 
   return {
     show(onPlay) {

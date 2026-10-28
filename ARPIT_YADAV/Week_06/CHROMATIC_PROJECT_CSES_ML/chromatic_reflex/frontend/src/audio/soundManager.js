@@ -44,16 +44,16 @@ export const getMuted = isMuted;
 // MULTI-TRACK BACKGROUND MUSIC JUKEBOX
 // ==========================================
 export const MUSIC_TRACKS = [
-  { id: 'arcade',    name: '8-Bit Arcade 👾' },
   { id: 'synthwave', name: 'Cyber Synth ⚡' },
+  { id: 'arcade',    name: '8-Bit Arcade 👾' },
   { id: 'lofi',      name: 'Chill Lofi ☕' },
-  { id: 'off',       name: 'Music: Off 🔇' },
+  { id: 'off',       name: 'Music: OFF 🔇' },
 ];
 
-let currentTrackId = 'arcade';
+let currentTrackId = 'synthwave';
 try {
-  const saved = localStorage.getItem('chromatic_music_track');
-  if (saved && saved !== 'off') currentTrackId = saved;
+  const saved = localStorage.getItem('chromatic_music_track_v2');
+  if (saved) currentTrackId = saved;
 } catch (e) {}
 
 let bgGain = null;
@@ -68,17 +68,22 @@ export function getCurrentTrack() {
 export function setMusicTrack(trackId) {
   if (trackId === 'off') {
     currentTrackId = 'off';
-    try { localStorage.setItem('chromatic_music_track', 'off'); } catch (e) {}
+    try { localStorage.setItem('chromatic_music_track_v2', 'off'); } catch (e) {}
     stopBackgroundMusic();
-    return getCurrentTrack();
+    const track = getCurrentTrack();
+    window.dispatchEvent(new CustomEvent('chromatic-music-changed', { detail: track }));
+    return track;
   }
 
   currentTrackId = trackId;
-  try { localStorage.setItem('chromatic_music_track', trackId); } catch (e) {}
+  try { localStorage.setItem('chromatic_music_track_v2', trackId); } catch (e) {}
 
   stopBackgroundMusic();
   startBackgroundMusic();
-  return getCurrentTrack();
+
+  const track = getCurrentTrack();
+  window.dispatchEvent(new CustomEvent('chromatic-music-changed', { detail: track }));
+  return track;
 }
 
 export function cycleMusicTrack() {
@@ -204,13 +209,13 @@ function stepArcadeChiptune(now) {
 }
 
 // ------------------------------------------
-// 2. CYBER SYNTHWAVE (Neon 80s Groove)
+// 2. CYBER SYNTHWAVE (Neon 80s Cyberpunk)
 // ------------------------------------------
 const SYNTH_BARS = [
-  { root: 110.00, pad: [220.00, 261.63, 329.63] }, // Am
-  { root: 87.31,  pad: [174.61, 220.00, 261.63] }, // F
-  { root: 130.81, pad: [196.00, 261.63, 329.63] }, // C
-  { root: 98.00,  pad: [196.00, 246.94, 293.66] }, // G
+  { root: 110.00, pad: [220.00, 261.63, 329.63], lead: [440.00, 523.25, 659.25] }, // Am
+  { root: 87.31,  pad: [174.61, 220.00, 261.63], lead: [523.25, 659.25, 698.46] }, // F
+  { root: 130.81, pad: [196.00, 261.63, 329.63], lead: [659.25, 587.33, 523.25] }, // C
+  { root: 98.00,  pad: [196.00, 246.94, 293.66], lead: [587.33, 493.88, 392.00] }, // G
 ];
 
 function stepSynthwave(now) {
@@ -218,15 +223,15 @@ function stepSynthwave(now) {
   const stepInBar = bgStep % 16;
   const bar = SYNTH_BARS[barIndex];
 
-  // Kick on steps 0, 4, 8, 12
+  // 1. Kick on beats (0, 4, 8, 12)
   if (stepInBar % 4 === 0) {
     try {
       const osc = ctx.createOscillator();
       const g = ctx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(140, now);
+      osc.frequency.setValueAtTime(150, now);
       osc.frequency.exponentialRampToValueAtTime(45, now + 0.08);
-      g.gain.setValueAtTime(0.35, now);
+      g.gain.setValueAtTime(0.36, now);
       g.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
       osc.connect(g);
       g.connect(bgGain);
@@ -235,19 +240,61 @@ function stepSynthwave(now) {
     } catch (e) {}
   }
 
-  // Sawtooth rolling bass
+  // 2. Snare on beats 2 & 4 (steps 4 & 12)
+  if (stepInBar === 4 || stepInBar === 12) {
+    try {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(240, now);
+      osc.frequency.exponentialRampToValueAtTime(90, now + 0.06);
+      g.gain.setValueAtTime(0.22, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
+      osc.connect(g);
+      g.connect(bgGain);
+      osc.start(now);
+      osc.stop(now + 0.09);
+    } catch (e) {}
+  }
+
+  // 3. Open hi-hat on offbeats (2, 6, 10, 14)
+  if (stepInBar % 4 === 2) {
+    try {
+      const osc = ctx.createOscillator();
+      const f = ctx.createBiquadFilter();
+      const g = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(6500, now);
+      f.type = 'highpass';
+      f.frequency.setValueAtTime(5000, now);
+      g.gain.setValueAtTime(0.07, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.06);
+      osc.connect(f);
+      f.connect(g);
+      g.connect(bgGain);
+      osc.start(now);
+      osc.stop(now + 0.07);
+    } catch (e) {}
+  }
+
+  // 4. Sawtooth rolling synth bass (16th-note electro pulse)
   if (stepInBar % 2 === 0) {
     try {
       const osc = ctx.createOscillator();
       const g = ctx.createGain();
       const f = ctx.createBiquadFilter();
+      const isOctave = (stepInBar % 4 === 2);
+      const freq = isOctave ? bar.root : (bar.root * 0.5);
+
       osc.type = 'sawtooth';
-      osc.frequency.setValueAtTime(bar.root * 0.5, now);
+      osc.frequency.setValueAtTime(freq, now);
       f.type = 'lowpass';
-      f.frequency.setValueAtTime(500, now);
+      f.frequency.setValueAtTime(isOctave ? 600 : 420, now);
       f.frequency.exponentialRampToValueAtTime(160, now + 0.09);
+      f.Q.setValueAtTime(2.5, now);
+
       g.gain.setValueAtTime(0.0001, now);
-      g.gain.linearRampToValueAtTime(0.22, now + 0.008);
+      g.gain.linearRampToValueAtTime(0.24, now + 0.008);
       g.gain.exponentialRampToValueAtTime(0.0001, now + 0.10);
       osc.connect(f);
       f.connect(g);
@@ -257,7 +304,7 @@ function stepSynthwave(now) {
     } catch (e) {}
   }
 
-  // Synth chord pad on step 0
+  // 5. Synth chord pad on step 0
   if (stepInBar === 0) {
     bar.pad.forEach((freq, idx) => {
       try {
@@ -265,8 +312,9 @@ function stepSynthwave(now) {
         const g = ctx.createGain();
         osc.type = 'sawtooth';
         osc.frequency.setValueAtTime(freq, now);
+        osc.detune.setValueAtTime((idx - 1) * 6, now);
         g.gain.setValueAtTime(0.0001, now);
-        g.gain.linearRampToValueAtTime(0.06, now + 0.1);
+        g.gain.linearRampToValueAtTime(0.07, now + 0.08);
         g.gain.exponentialRampToValueAtTime(0.0001, now + 1.6);
         osc.connect(g);
         g.connect(bgGain);
@@ -274,6 +322,28 @@ function stepSynthwave(now) {
         osc.stop(now + 1.65);
       } catch (e) {}
     });
+  }
+
+  // 6. Neon lead melody notes on steps 2, 6, 10
+  if (stepInBar === 2 || stepInBar === 6 || stepInBar === 10) {
+    const lIdx = stepInBar === 2 ? 0 : (stepInBar === 6 ? 1 : 2);
+    try {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      const f = ctx.createBiquadFilter();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(bar.lead[lIdx], now);
+      f.type = 'lowpass';
+      f.frequency.setValueAtTime(2200, now);
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.linearRampToValueAtTime(0.12, now + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.22);
+      osc.connect(f);
+      f.connect(g);
+      g.connect(bgGain);
+      osc.start(now);
+      osc.stop(now + 0.23);
+    } catch (e) {}
   }
 }
 

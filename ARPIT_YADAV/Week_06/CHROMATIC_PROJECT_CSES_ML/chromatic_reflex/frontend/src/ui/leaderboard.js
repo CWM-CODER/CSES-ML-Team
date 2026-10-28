@@ -1,3 +1,5 @@
+import { initAudio, playClick, getCurrentTrack, cycleMusicTrack, getMuted } from '../audio/soundManager.js';
+
 const API_BASE_URL = import.meta.env?.VITE_API_URL || 'http://localhost:8000/api';
 
 // ─── Inject styles once ────────────────────────────────────────────────────
@@ -297,7 +299,7 @@ export function createLeaderboardScreen() {
           <span class="lb-eyebrow">Chromatic Reflex</span>
           <h1 class="lb-main-title">🏆 Leaderboard</h1>
         </div>
-        <div class="lb-spacer"></div>
+        <button class="lb-back-btn" id="lb-btn-music" style="color:#38bdf8;border:1px solid rgba(56,189,248,0.35);background:rgba(56,189,248,0.12);">🎵 Cyber Synth ⚡</button>
       </div>
 
       <div class="lb-controls">
@@ -351,11 +353,40 @@ export function createLeaderboardScreen() {
   const searchBtn   = ov.querySelector('#lb-search-btn');
   const refreshBtn  = ov.querySelector('#lb-refresh-btn');
   const backBtn     = ov.querySelector('#lb-back-btn');
+  const musicBtn    = ov.querySelector('#lb-btn-music');
   const foundCard   = ov.querySelector('#lb-found-card');
   const notFound    = ov.querySelector('#lb-not-found');
   const foundRank   = ov.querySelector('#lb-found-rank');
   const foundName   = ov.querySelector('#lb-found-name');
   const foundStats  = ov.querySelector('#lb-found-stats');
+
+  function updateMusicBtn() {
+    if (!musicBtn) return;
+    const track = getCurrentTrack();
+    const isM = getMuted() || track.id === 'off';
+    if (isM) {
+      musicBtn.textContent = '🔇 Music: OFF';
+      musicBtn.style.color = '#fca5a5';
+      musicBtn.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+      musicBtn.style.background = 'rgba(239, 68, 68, 0.15)';
+    } else {
+      musicBtn.textContent = `🎵 ${track.name}`;
+      musicBtn.style.color = '#38bdf8';
+      musicBtn.style.borderColor = 'rgba(56, 189, 248, 0.45)';
+      musicBtn.style.background = 'rgba(56, 189, 248, 0.15)';
+    }
+  }
+  updateMusicBtn();
+  if (musicBtn) {
+    musicBtn.onclick = (e) => {
+      e.stopPropagation();
+      initAudio();
+      cycleMusicTrack();
+      playClick();
+      updateMusicBtn();
+    };
+  }
+  window.addEventListener('chromatic-music-changed', updateMusicBtn);
 
   function renderTable(data) {
     if (!data.length) {

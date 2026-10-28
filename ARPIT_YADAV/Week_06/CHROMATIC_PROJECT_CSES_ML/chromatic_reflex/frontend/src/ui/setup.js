@@ -1,6 +1,7 @@
 import { startCamera }      from '../camera/camera.js';
 import { createHandTracker } from '../hands/handTracker.js';
 import { drawHand }          from '../hands/overlay.js';
+import { initAudio, playClick, getCurrentTrack, cycleMusicTrack, getMuted } from '../audio/soundManager.js';
 
 const MAPPING = [
   { color: 'RED',    label: 'Two Fingers', emoji: '✌️', hex: '#ef4444' },
@@ -319,6 +320,9 @@ export function runSetup(videoEl, canvasEl) {
     const ov = document.createElement('div');
     ov.id = 'su-overlay';
     ov.innerHTML = `
+      <div style="position:fixed;top:20px;right:24px;z-index:300;pointer-events:auto;">
+        <button id="su-btn-music" style="background:rgba(56,189,248,0.15);border:1px solid rgba(56,189,248,0.45);color:#38bdf8;border-radius:99px;padding:7px 16px;font-size:13px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-family:inherit;box-shadow:0 4px 14px rgba(0,0,0,0.4);transition:all 0.2s ease;">🎵 Cyber Synth ⚡</button>
+      </div>
 
       <div class="su-card" id="su-s1">
         <div class="su-logo">CHROMATIC REFLEX</div>
@@ -380,6 +384,35 @@ export function runSetup(videoEl, canvasEl) {
     `;
     document.body.appendChild(ov);
 
+    const musicBtn = ov.querySelector('#su-btn-music');
+    function updateMusicBtn() {
+      if (!musicBtn) return;
+      const track = getCurrentTrack();
+      const isM = getMuted() || track.id === 'off';
+      if (isM) {
+        musicBtn.textContent = '🔇 Music: OFF';
+        musicBtn.style.color = '#fca5a5';
+        musicBtn.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+        musicBtn.style.background = 'rgba(239, 68, 68, 0.15)';
+      } else {
+        musicBtn.textContent = `🎵 ${track.name}`;
+        musicBtn.style.color = '#38bdf8';
+        musicBtn.style.borderColor = 'rgba(56, 189, 248, 0.45)';
+        musicBtn.style.background = 'rgba(56, 189, 248, 0.15)';
+      }
+    }
+    updateMusicBtn();
+    if (musicBtn) {
+      musicBtn.onclick = (e) => {
+        e.stopPropagation();
+        initAudio();
+        cycleMusicTrack();
+        playClick();
+        updateMusicBtn();
+      };
+    }
+    window.addEventListener('chromatic-music-changed', updateMusicBtn);
+
     const htBtns = ov.querySelectorAll('.su-htb');
     htBtns.forEach(b => b.addEventListener('click', () => {
       htBtns.forEach(x => x.classList.remove('su-active'));
@@ -406,8 +439,25 @@ export function runSetup(videoEl, canvasEl) {
           canvasEl.height = videoEl.videoHeight;
         }
         setRow(crCam, 'ok', 'Camera access ✓');
+        const existingRetry = ov.querySelector('#su-cam-retry');
+        if (existingRetry) existingRetry.remove();
       } catch {
         setRow(crCam, 'fail', 'Camera denied — check browser permissions');
+        let existingRetry = ov.querySelector('#su-cam-retry');
+        if (!existingRetry) {
+          existingRetry = document.createElement('button');
+          existingRetry.id = 'su-cam-retry';
+          existingRetry.className = 'su-btn';
+          existingRetry.style.cssText = 'margin-top:12px;background:rgba(56,189,248,0.2);border:1.5px solid #38bdf8;color:#7dd3fc;font-weight:800;cursor:pointer;padding:10px 16px;border-radius:12px;font-family:inherit;width:100%;';
+          existingRetry.textContent = '🔄 Retry Camera Access';
+          existingRetry.onclick = async () => {
+            setRow(crCam, 'loading', 'Checking camera access…');
+            existingRetry.disabled = true;
+            await initCameraCheck();
+            existingRetry.disabled = false;
+          };
+          crCam.parentNode.insertBefore(existingRetry, crCam.nextSibling);
+        }
         return;
       }
 
@@ -465,6 +515,7 @@ export function runSetup(videoEl, canvasEl) {
 
     ov.querySelector('#su-b3').addEventListener('click', () => {
       cancelAnimationFrame(rafId);
+      window.removeEventListener('chromatic-music-changed', updateMusicBtn);
       ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
       ov.remove();
       resolve({ name: playerName, hand: selHand, tracker });

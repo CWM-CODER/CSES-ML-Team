@@ -1,4 +1,4 @@
-import { initAudio, toggleMute, getMuted, playCompletion, playLevelUp, playGauntlet } from '../audio/soundManager.js';
+import { initAudio, toggleMute, getMuted, playCompletion, playLevelUp, playGauntlet, getCurrentTrack, cycleMusicTrack, playClick } from '../audio/soundManager.js';
 import { createLeaderboardScreen } from './leaderboard.js';
 
 const TARGET_COLORS = {
@@ -264,19 +264,42 @@ function injectGameStyles() {
     }
 
     .gu-bar-mute {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      color: #cbd5e1;
-      padding: 6px 10px;
+      background: rgba(56, 189, 248, 0.12);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+      color: #38bdf8;
+      padding: 6px 14px;
       border-radius: 99px;
-      font-size: 13px;
+      font-size: 12px;
+      font-weight: 700;
       display: inline-flex;
       align-items: center;
-      justify-content: center;
+      gap: 6px;
+      white-space: nowrap;
+      cursor: pointer;
+      font-family: inherit;
     }
     .gu-bar-mute:hover {
-      background: rgba(255, 255, 255, 0.18);
+      background: rgba(56, 189, 248, 0.22);
       color: #fff;
+    }
+    .gu-ms-music-btn {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #7dd3fc;
+      border-radius: 99px;
+      padding: 6px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+    .gu-ms-music-btn:hover {
+      background: rgba(255, 255, 255, 0.16);
+      transform: scale(1.02);
     }
 
     .gu-game-stack {
@@ -874,7 +897,7 @@ export function createGameUI(stageEl, hudEl, onExit) {
 
     <div style="display: flex; gap: 8px; align-items: center;">
       <button class="gu-bar-pause" id="gu-btn-pause" title="Pause Game (Space or P)">⏸ Pause</button>
-      <button class="gu-bar-mute" id="gu-btn-mute" title="Toggle Sound">🔊</button>
+      <button class="gu-bar-mute" id="gu-btn-music" title="Change Music Track / Mute">🎵 Cyber Synth ⚡</button>
       <button class="gu-bar-exit" id="gu-btn-exit" title="Exit to Home Screen">✕ Exit</button>
     </div>
   `;
@@ -958,6 +981,7 @@ export function createGameUI(stageEl, hudEl, onExit) {
       </div>
       <div class="gu-res-actions">
         <button class="gu-res-btn gu-res-primary" id="gu-res-play-again">Play Again 🎮</button>
+        <button class="gu-res-btn gu-res-secondary" id="gu-res-btn-music">🎵 Cyber Synth ⚡</button>
         <button class="gu-res-btn gu-res-secondary gu-res-lb-btn" id="gu-res-leaderboard" style="border-color:#38bdf8;color:#7dd3fc;background:rgba(56,189,248,0.12);">🏆 View Leaderboard</button>
         <button class="gu-res-btn gu-res-secondary" id="gu-res-exit">Exit to Home 🏠</button>
       </div>
@@ -980,6 +1004,7 @@ export function createGameUI(stageEl, hudEl, onExit) {
       </div>
       <div class="gu-pause-actions">
         <button class="gu-pause-btn gu-pause-primary" id="gu-pause-btn-resume">▶ Resume Game</button>
+        <button class="gu-pause-btn gu-pause-secondary" id="gu-pause-btn-music">🎵 Cyber Synth ⚡</button>
         <button class="gu-pause-btn gu-pause-secondary" id="gu-pause-btn-restart">🔄 Restart Benchmark</button>
         <button class="gu-pause-btn gu-pause-danger" id="gu-pause-btn-exit">🏠 Exit to Home</button>
       </div>
@@ -1027,7 +1052,6 @@ export function createGameUI(stageEl, hudEl, onExit) {
   const fbResult         = document.getElementById('gu-feedback-result');
   const fbRt             = document.getElementById('gu-feedback-rt');
   const btnExit          = document.getElementById('gu-btn-exit');
-  const btnMute          = document.getElementById('gu-btn-mute');
 
   const statAcc        = document.getElementById('gu-stat-acc');
   const statBestStreak = document.getElementById('gu-stat-best-streak');
@@ -1040,16 +1064,44 @@ export function createGameUI(stageEl, hudEl, onExit) {
   let currentExitHandler = onExit;
   btnExit.onclick = () => { currentExitHandler?.(); };
 
-  if (btnMute) {
-    btnMute.textContent = getMuted() ? '🔇' : '🔊';
-    btnMute.setAttribute('title', getMuted() ? 'Unmute Sound' : 'Mute Sound');
-    btnMute.onclick = () => {
-      initAudio();
-      const muted = toggleMute();
-      btnMute.textContent = muted ? '🔇' : '🔊';
-      btnMute.setAttribute('title', muted ? 'Unmute Sound' : 'Mute Sound');
-    };
+  function renderMusicButtonState(btn) {
+    if (!btn) return;
+    const track = getCurrentTrack();
+    const isM = getMuted() || track.id === 'off';
+    if (isM) {
+      btn.innerHTML = '🔇 Music: OFF';
+      btn.style.color = '#fca5a5';
+      btn.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+      btn.style.background = 'rgba(239, 68, 68, 0.15)';
+    } else {
+      btn.innerHTML = `🎵 ${track.name}`;
+      btn.style.color = '#38bdf8';
+      btn.style.borderColor = 'rgba(56, 189, 248, 0.45)';
+      btn.style.background = 'rgba(56, 189, 248, 0.15)';
+    }
   }
+
+  function syncAllMusicButtons() {
+    renderMusicButtonState(document.getElementById('gu-btn-music'));
+    renderMusicButtonState(document.getElementById('gu-pause-btn-music'));
+    renderMusicButtonState(document.getElementById('gu-res-btn-music'));
+    renderMusicButtonState(document.getElementById('gu-ms-btn-music'));
+  }
+
+  function handleMusicClick(e) {
+    if (e) e.stopPropagation();
+    initAudio();
+    cycleMusicTrack();
+    playClick();
+    syncAllMusicButtons();
+  }
+
+  document.getElementById('gu-btn-music')?.addEventListener('click', handleMusicClick);
+  document.getElementById('gu-pause-btn-music')?.addEventListener('click', handleMusicClick);
+  document.getElementById('gu-res-btn-music')?.addEventListener('click', handleMusicClick);
+
+  window.addEventListener('chromatic-music-changed', syncAllMusicButtons);
+  syncAllMusicButtons();
 
   let fbTimer = null;
   let timeoutWarnTimer = null;
@@ -1427,6 +1479,7 @@ export function createGameUI(stageEl, hudEl, onExit) {
             <div class="gu-ms-progress-track">
               <div class="gu-ms-progress-fill ${fillClass}" id="gu-ms-progress-bar"></div>
             </div>
+            <button class="gu-ms-music-btn" id="gu-ms-btn-music">🎵 Cyber Synth ⚡</button>
             <p class="gu-ms-hint">Starts in 20s • Press <strong>Space</strong> or click to start now</p>
           </div>
         </div>
@@ -1456,6 +1509,12 @@ export function createGameUI(stageEl, hudEl, onExit) {
           e.stopPropagation();
           finish();
         };
+      }
+
+      const msMusicBtn = document.getElementById('gu-ms-btn-music');
+      if (msMusicBtn) {
+        renderMusicButtonState(msMusicBtn);
+        msMusicBtn.onclick = handleMusicClick;
       }
 
       milestoneModal.onclick = (e) => {
@@ -1528,6 +1587,7 @@ export function createGameUI(stageEl, hudEl, onExit) {
         activeMilestoneDismiss = null;
       }
       window.removeEventListener('keydown', handleKeydown);
+      window.removeEventListener('chromatic-music-changed', syncAllMusicButtons);
       pauseModal.remove();
       milestoneModal.remove();
       leaderboard.hide();

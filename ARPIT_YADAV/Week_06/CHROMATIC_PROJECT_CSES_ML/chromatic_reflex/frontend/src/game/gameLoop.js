@@ -53,8 +53,8 @@ function pickStroopCue() {
 }
 
 export function runGame(videoEl, canvasEl, tracker, playerInfo, _baseline, ui, onExit) {
-  // Silence background music during active game play for pure reaction focus!
-  stopBackgroundMusic();
+  // Ensure the user's chosen background music (default: Cyber Synth) is playing
+  startBackgroundMusic();
 
   return new Promise((resolve) => {
     const ctx = canvasEl.getContext('2d');
