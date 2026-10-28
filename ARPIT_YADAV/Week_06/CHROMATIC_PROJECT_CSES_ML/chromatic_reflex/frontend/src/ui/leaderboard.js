@@ -1,6 +1,19 @@
 import { initAudio, playClick, getCurrentTrack, cycleMusicTrack, getMuted } from '../audio/soundManager.js';
 
-const API_BASE_URL = import.meta.env?.VITE_API_URL || 'http://localhost:8000/api';
+function getApiBaseUrl() {
+  if (import.meta.env?.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  if (typeof window !== 'undefined') {
+    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      return '/api';
+    }
+    if (window.location.port === '8000') {
+      return '/api';
+    }
+  }
+  return import.meta.env?.PROD ? '/api' : 'http://localhost:8000/api';
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 // ─── Inject styles once ────────────────────────────────────────────────────
 function injectLeaderboardStyles() {

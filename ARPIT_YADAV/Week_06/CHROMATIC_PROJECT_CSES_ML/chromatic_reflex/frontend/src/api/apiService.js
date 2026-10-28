@@ -1,4 +1,17 @@
-const API_BASE_URL = import.meta.env?.VITE_API_URL || (import.meta.env?.PROD ? '/api' : 'http://localhost:8000/api');
+function getApiBaseUrl() {
+  if (import.meta.env?.VITE_API_URL) return import.meta.env.VITE_API_URL;
+  if (typeof window !== 'undefined') {
+    if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+      return '/api';
+    }
+    if (window.location.port === '8000') {
+      return '/api';
+    }
+  }
+  return import.meta.env?.PROD ? '/api' : 'http://localhost:8000/api';
+}
+
+const API_BASE_URL = getApiBaseUrl();
 
 export function buildSessionPayload(playerInfo, stats, roundHistory) {
   const total = stats.total || 0;
