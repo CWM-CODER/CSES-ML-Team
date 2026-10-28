@@ -1,4 +1,4 @@
-import { playClick, toggleMute, getMuted, initAudio, startBackgroundMusic } from '../audio/soundManager.js';
+import { playClick, toggleMute, getMuted, initAudio, startBackgroundMusic, getCurrentTrack, cycleMusicTrack } from '../audio/soundManager.js';
 import { createLeaderboardScreen } from './leaderboard.js';
 
 function injectHomeStyles() {
@@ -335,11 +335,19 @@ export function createHomeScreen() {
   const soundBtn = document.getElementById('home-btn-sound');
   function updateSoundBtn() {
     if (!soundBtn) return;
-    const isM = getMuted();
-    soundBtn.textContent = isM ? '🔇 Music: MUTED' : '🔊 Music: ON';
-    soundBtn.style.color = isM ? '#fca5a5' : '#38bdf8';
-    soundBtn.style.borderColor = isM ? 'rgba(239, 68, 68, 0.4)' : 'rgba(56, 189, 248, 0.4)';
-    soundBtn.style.background = isM ? 'rgba(239, 68, 68, 0.12)' : 'rgba(56, 189, 248, 0.14)';
+    const track = getCurrentTrack();
+    const isM = getMuted() || track.id === 'off';
+    if (isM) {
+      soundBtn.textContent = '🔇 Music: OFF';
+      soundBtn.style.color = '#fca5a5';
+      soundBtn.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+      soundBtn.style.background = 'rgba(239, 68, 68, 0.12)';
+    } else {
+      soundBtn.textContent = `🎵 ${track.name}`;
+      soundBtn.style.color = '#38bdf8';
+      soundBtn.style.borderColor = 'rgba(56, 189, 248, 0.45)';
+      soundBtn.style.background = 'rgba(56, 189, 248, 0.15)';
+    }
   }
   updateSoundBtn();
 
@@ -347,13 +355,7 @@ export function createHomeScreen() {
     soundBtn.onclick = (e) => {
       e.stopPropagation();
       initAudio();
-      const currentMuted = getMuted();
-      if (currentMuted) {
-        setMuted(false);
-        startBackgroundMusic();
-      } else {
-        setMuted(true);
-      }
+      cycleMusicTrack();
       playClick();
       updateSoundBtn();
     };

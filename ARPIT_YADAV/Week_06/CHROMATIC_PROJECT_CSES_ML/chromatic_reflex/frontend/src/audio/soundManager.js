@@ -42,220 +42,320 @@ export function toggleMute() {
 export const getMuted = isMuted;
 
 // ==========================================
-// BACKGROUND MUSIC ENGINE (Smooth Lofi Chill Groove / 92 BPM)
+// MULTI-TRACK BACKGROUND MUSIC JUKEBOX
 // ==========================================
+export const MUSIC_TRACKS = [
+  { id: 'arcade',    name: '8-Bit Arcade 👾' },
+  { id: 'synthwave', name: 'Cyber Synth ⚡' },
+  { id: 'lofi',      name: 'Chill Lofi ☕' },
+  { id: 'off',       name: 'Music: Off 🔇' },
+];
+
+let currentTrackId = localStorage.getItem('chromatic_music_track') || 'arcade';
 let bgGain = null;
 let bgRunning = false;
 let bgTimer = null;
 let bgStep = 0;
 
-// Warm, stylish, relaxed neo-soul / lofi chords (Dm9 -> G13 -> Cmaj9 -> A7alt)
-// 92 BPM -> 163ms per 16th note step
-const LOFI_BARS = [
-  // Bar 1: Dm9 (Smooth, mellow)
+export function getCurrentTrack() {
+  return MUSIC_TRACKS.find(t => t.id === currentTrackId) || MUSIC_TRACKS[0];
+}
+
+export function setMusicTrack(trackId) {
+  if (trackId === 'off') {
+    currentTrackId = 'off';
+    localStorage.setItem('chromatic_music_track', 'off');
+    stopBackgroundMusic();
+    return getCurrentTrack();
+  }
+
+  currentTrackId = trackId;
+  localStorage.setItem('chromatic_music_track', trackId);
+
+  if (bgRunning) {
+    stopBackgroundMusic();
+    startBackgroundMusic();
+  }
+  return getCurrentTrack();
+}
+
+export function cycleMusicTrack() {
+  const currentIndex = MUSIC_TRACKS.findIndex(t => t.id === currentTrackId);
+  const nextTrack = MUSIC_TRACKS[(currentIndex + 1) % MUSIC_TRACKS.length];
+  return setMusicTrack(nextTrack.id);
+}
+
+// ------------------------------------------
+// 1. ARCADE CHIPTUNE (Upbeat, Catchy, Bouncy)
+// ------------------------------------------
+const CHIPTUNE_BARS = [
+  // Bar 1: C Major (Joyful & bouncy)
   {
-    bass: 73.42, // D2
-    epiano: [146.83, 220.00, 261.63, 329.63, 349.23], // D3, A3, C4, E4, F4
-    lead: [440.00, 523.25, 659.25, 587.33], // A4, C5, E5, D5
+    bass: 130.81, // C3
+    sub: 65.41,   // C2
+    melody: [523.25, 659.25, 783.99, 1046.50, 783.99, 659.25, 523.25, 587.33],
   },
-  // Bar 2: G13 (Soulful turn)
+  // Bar 2: A Minor (Nostalgic arcade flow)
   {
-    bass: 49.00, // G1
-    epiano: [98.00, 196.00, 246.94, 329.63, 392.00], // G2, G3, B3, E4, G4
-    lead: [392.00, 493.88, 587.33, 493.88], // G4, B4, D5, B4
+    bass: 110.00, // A2
+    sub: 55.00,   // A1
+    melody: [440.00, 523.25, 659.25, 880.00, 659.25, 523.25, 440.00, 493.88],
   },
-  // Bar 3: Cmaj9 (Lush resolution)
+  // Bar 3: F Major (Upward anthem energy)
   {
-    bass: 65.41, // C2
-    epiano: [130.81, 196.00, 246.94, 293.66, 329.63], // C3, G3, B3, D4, E4
-    lead: [523.25, 587.33, 659.25, 523.25], // C5, D5, E5, C5
+    bass: 87.31,  // F2
+    sub: 43.65,   // F1
+    melody: [349.23, 440.00, 523.25, 698.46, 523.25, 440.00, 349.23, 392.00],
   },
-  // Bar 4: A7b13 (Smooth jazz turnaround)
+  // Bar 4: G Major (Bouncy turnaround)
   {
-    bass: 55.00, // A1
-    epiano: [110.00, 174.61, 220.00, 277.18, 329.63], // A2, F3, A3, C#4, E4
-    lead: [440.00, 554.37, 587.33, 493.88], // A4, C#5, D5, B4
+    bass: 98.00,  // G2
+    sub: 49.00,   // G1
+    melody: [392.00, 493.88, 587.33, 783.99, 880.00, 783.99, 587.33, 493.88],
   },
 ];
 
-// Soft, relaxed electric piano chord strum
-function playEPianoChords(notes, now) {
-  if (!ctx || muted) return;
-  try {
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(1100, now);
+function stepArcadeChiptune(now) {
+  const barIndex = Math.floor((bgStep % 64) / 16);
+  const stepInBar = bgStep % 16;
+  const bar = CHIPTUNE_BARS[barIndex];
 
-    notes.forEach((freq, i) => {
+  // 8-bit staccato bass (plays on every even 16th step)
+  if (stepInBar % 2 === 0) {
+    const isHigh = stepInBar % 4 === 2;
+    const freq = isHigh ? bar.bass : bar.sub;
+    try {
       const osc = ctx.createOscillator();
       const g = ctx.createGain();
-      const delay = i * 0.016; // Gentle human strum delay
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(freq, now);
 
-      osc.type = 'triangle';
-      osc.frequency.setValueAtTime(freq, now + delay);
-      osc.detune.setValueAtTime((i - 2) * 5, now + delay);
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.linearRampToValueAtTime(0.20, now + 0.005);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.08);
 
-      g.gain.setValueAtTime(0.0001, now + delay);
-      g.gain.linearRampToValueAtTime(0.12, now + delay + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, now + delay + 1.2);
-
-      osc.connect(filter);
-      filter.connect(g);
+      osc.connect(g);
       g.connect(bgGain);
+      osc.start(now);
+      osc.stop(now + 0.09);
+    } catch (e) {}
+  }
 
-      osc.start(now + delay);
-      osc.stop(now + delay + 1.25);
+  // Chiptune lead melody (bouncy 8th notes on even steps)
+  if (stepInBar % 2 === 0) {
+    const mIdx = (stepInBar / 2) % bar.melody.length;
+    const mFreq = bar.melody[mIdx];
+    try {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(mFreq, now);
+
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.linearRampToValueAtTime(0.14, now + 0.004);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.12);
+
+      osc.connect(g);
+      g.connect(bgGain);
+      osc.start(now);
+      osc.stop(now + 0.13);
+    } catch (e) {}
+  }
+
+  // Chiptune noise snare / percussion on beats 2 & 4 (steps 4 & 12)
+  if (stepInBar === 4 || stepInBar === 12) {
+    try {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(280, now);
+      osc.frequency.exponentialRampToValueAtTime(60, now + 0.05);
+
+      g.gain.setValueAtTime(0.22, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.06);
+
+      osc.connect(g);
+      g.connect(bgGain);
+      osc.start(now);
+      osc.stop(now + 0.07);
+    } catch (e) {}
+  }
+
+  // Chiptune hi-hat blip on odd steps
+  if (stepInBar % 2 === 1) {
+    try {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(3600, now);
+
+      g.gain.setValueAtTime(0.04, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.025);
+
+      osc.connect(g);
+      g.connect(bgGain);
+      osc.start(now);
+      osc.stop(now + 0.03);
+    } catch (e) {}
+  }
+}
+
+// ------------------------------------------
+// 2. CYBER SYNTHWAVE (Neon 80s Groove)
+// ------------------------------------------
+const SYNTH_BARS = [
+  { root: 110.00, pad: [220.00, 261.63, 329.63] }, // Am
+  { root: 87.31,  pad: [174.61, 220.00, 261.63] }, // F
+  { root: 130.81, pad: [196.00, 261.63, 329.63] }, // C
+  { root: 98.00,  pad: [196.00, 246.94, 293.66] }, // G
+];
+
+function stepSynthwave(now) {
+  const barIndex = Math.floor((bgStep % 64) / 16);
+  const stepInBar = bgStep % 16;
+  const bar = SYNTH_BARS[barIndex];
+
+  // Kick on steps 0, 4, 8, 12
+  if (stepInBar % 4 === 0) {
+    try {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(140, now);
+      osc.frequency.exponentialRampToValueAtTime(45, now + 0.08);
+      g.gain.setValueAtTime(0.35, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+      osc.connect(g);
+      g.connect(bgGain);
+      osc.start(now);
+      osc.stop(now + 0.16);
+    } catch (e) {}
+  }
+
+  // Sawtooth rolling bass
+  if (stepInBar % 2 === 0) {
+    try {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      const f = ctx.createBiquadFilter();
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(bar.root * 0.5, now);
+      f.type = 'lowpass';
+      f.frequency.setValueAtTime(500, now);
+      f.frequency.exponentialRampToValueAtTime(160, now + 0.09);
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.linearRampToValueAtTime(0.22, now + 0.008);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.10);
+      osc.connect(f);
+      f.connect(g);
+      g.connect(bgGain);
+      osc.start(now);
+      osc.stop(now + 0.11);
+    } catch (e) {}
+  }
+
+  // Synth chord pad on step 0
+  if (stepInBar === 0) {
+    bar.pad.forEach((freq, idx) => {
+      try {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(freq, now);
+        g.gain.setValueAtTime(0.0001, now);
+        g.gain.linearRampToValueAtTime(0.06, now + 0.1);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + 1.6);
+        osc.connect(g);
+        g.connect(bgGain);
+        osc.start(now);
+        osc.stop(now + 1.65);
+      } catch (e) {}
     });
-  } catch (e) {}
+  }
 }
 
-// Deep, warm sub-bass pulse
-function playMellowBass(freq, now) {
-  if (!ctx || muted) return;
-  try {
-    const osc = ctx.createOscillator();
-    const g = ctx.createGain();
-    const filter = ctx.createBiquadFilter();
+// ------------------------------------------
+// 3. CHILL LOFI (Mellow Neo-Soul)
+// ------------------------------------------
+const LOFI_BARS = [
+  { bass: 73.42, epiano: [146.83, 220.00, 261.63, 329.63] }, // Dm9
+  { bass: 49.00, epiano: [98.00, 196.00, 246.94, 329.63] },  // G13
+  { bass: 65.41, epiano: [130.81, 196.00, 246.94, 293.66] }, // Cmaj9
+  { bass: 55.00, epiano: [110.00, 174.61, 220.00, 277.18] }, // A7alt
+];
 
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, now);
+function stepLofi(now) {
+  const barIndex = Math.floor((bgStep % 64) / 16);
+  const stepInBar = bgStep % 16;
+  const bar = LOFI_BARS[barIndex];
 
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(180, now);
+  if (stepInBar === 0) {
+    // Sub-bass
+    try {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(bar.bass, now);
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.linearRampToValueAtTime(0.28, now + 0.04);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 1.2);
+      osc.connect(g);
+      g.connect(bgGain);
+      osc.start(now);
+      osc.stop(now + 1.25);
+    } catch (e) {}
 
-    g.gain.setValueAtTime(0.0001, now);
-    g.gain.linearRampToValueAtTime(0.30, now + 0.03);
-    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.85);
+    // Rhodes strum
+    bar.epiano.forEach((freq, i) => {
+      try {
+        const osc = ctx.createOscillator();
+        const g = ctx.createGain();
+        const del = i * 0.018;
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + del);
+        g.gain.setValueAtTime(0.0001, now + del);
+        g.gain.linearRampToValueAtTime(0.10, now + del + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + del + 1.4);
+        osc.connect(g);
+        g.connect(bgGain);
+        osc.start(now + del);
+        osc.stop(now + del + 1.45);
+      } catch (e) {}
+    });
+  }
 
-    osc.connect(filter);
-    filter.connect(g);
-    g.connect(bgGain);
-
-    osc.start(now);
-    osc.stop(now + 0.9);
-  } catch (e) {}
-}
-
-// Soft lofi rimshot / finger snap
-function playRimshot(now) {
-  if (!ctx || muted) return;
-  try {
-    const osc = ctx.createOscillator();
-    const g = ctx.createGain();
-    const f = ctx.createBiquadFilter();
-
-    osc.type = 'triangle';
-    osc.frequency.setValueAtTime(450, now);
-    osc.frequency.exponentialRampToValueAtTime(180, now + 0.04);
-
-    f.type = 'bandpass';
-    f.frequency.setValueAtTime(1400, now);
-
-    g.gain.setValueAtTime(0.18, now);
-    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.07);
-
-    osc.connect(f);
-    f.connect(g);
-    g.connect(bgGain);
-
-    osc.start(now);
-    osc.stop(now + 0.08);
-  } catch (e) {}
-}
-
-// Soft gentle brushed hi-hat
-function playSoftHat(now) {
-  if (!ctx || muted) return;
-  try {
-    const osc = ctx.createOscillator();
-    const filter = ctx.createBiquadFilter();
-    const g = ctx.createGain();
-
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(4800, now);
-
-    filter.type = 'highpass';
-    filter.frequency.setValueAtTime(3600, now);
-
-    g.gain.setValueAtTime(0.04, now);
-    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.035);
-
-    osc.connect(filter);
-    filter.connect(g);
-    g.connect(bgGain);
-
-    osc.start(now);
-    osc.stop(now + 0.04);
-  } catch (e) {}
-}
-
-// Mellow lofi lead note
-function playMellowLead(freq, now) {
-  if (!ctx || muted) return;
-  try {
-    const osc = ctx.createOscillator();
-    const g = ctx.createGain();
-    const filter = ctx.createBiquadFilter();
-
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(freq, now);
-
-    filter.type = 'lowpass';
-    filter.frequency.setValueAtTime(1200, now);
-
-    g.gain.setValueAtTime(0.0001, now);
-    g.gain.linearRampToValueAtTime(0.11, now + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, now + 0.45);
-
-    osc.connect(filter);
-    filter.connect(g);
-    g.connect(bgGain);
-
-    osc.start(now);
-    osc.stop(now + 0.5);
-  } catch (e) {}
+  // Soft rimshot on steps 4 and 12
+  if (stepInBar === 4 || stepInBar === 12) {
+    try {
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(420, now);
+      osc.frequency.exponentialRampToValueAtTime(160, now + 0.04);
+      g.gain.setValueAtTime(0.15, now);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.06);
+      osc.connect(g);
+      g.connect(bgGain);
+      osc.start(now);
+      osc.stop(now + 0.07);
+    } catch (e) {}
+  }
 }
 
 function onBgStep() {
-  if (!bgRunning || !ctx || muted) return;
+  if (!bgRunning || !ctx || muted || currentTrackId === 'off') return;
   if (ctx.state === 'suspended') {
     ctx.resume().catch(() => {});
     return;
   }
 
   const now = ctx.currentTime;
-  const barIndex = Math.floor((bgStep % 64) / 16);
-  const stepInBar = bgStep % 16;
-  const bar = LOFI_BARS[barIndex];
-
-  // Beat 1 (step 0): Rhodes chords + deep sub-bass
-  if (stepInBar === 0) {
-    playEPianoChords(bar.epiano, now);
-    playMellowBass(bar.bass, now);
-  }
-
-  // Beat 3 (step 8): Secondary sub-bass bounce
-  if (stepInBar === 8) {
-    playMellowBass(bar.bass * 1.5, now);
-  }
-
-  // Soft rimshot on beats 2 and 4 (steps 4 and 12)
-  if (stepInBar === 4 || stepInBar === 12) {
-    playRimshot(now);
-  }
-
-  // Soft brushed hat on even 8th notes (0, 2, 4, 6, 8, 10, 12, 14)
-  if (stepInBar % 2 === 0) {
-    playSoftHat(now);
-  }
-
-  // Gentle lofi melody note on select steps (2, 7, 10)
-  if (stepInBar === 2) {
-    playMellowLead(bar.lead[0], now);
-  } else if (stepInBar === 6) {
-    playMellowLead(bar.lead[1], now);
-  } else if (stepInBar === 10) {
-    playMellowLead(bar.lead[2], now);
+  if (currentTrackId === 'arcade') {
+    stepArcadeChiptune(now);
+  } else if (currentTrackId === 'synthwave') {
+    stepSynthwave(now);
+  } else if (currentTrackId === 'lofi') {
+    stepLofi(now);
   }
 
   bgStep++;
@@ -263,9 +363,9 @@ function onBgStep() {
 
 export function startBackgroundMusic() {
   initAudio();
-  if (!ctx) return;
+  if (!ctx || currentTrackId === 'off') return;
 
-  if (ctx.state === "suspended") {
+  if (ctx.state === 'suspended') {
     ctx.resume().then(() => {
       startMusicLoop();
     }).catch(() => {});
@@ -275,7 +375,7 @@ export function startBackgroundMusic() {
 }
 
 function startMusicLoop() {
-  if (bgRunning) return;
+  if (bgRunning || currentTrackId === 'off') return;
   bgRunning = true;
 
   if (!bgGain) {
@@ -287,8 +387,10 @@ function startMusicLoop() {
   if (bgTimer) clearInterval(bgTimer);
   bgStep = 0;
   onBgStep();
-  // 92 BPM -> 163ms per 16th note step (relaxed, slow chill tempo)
-  bgTimer = setInterval(onBgStep, 163);
+
+  // Speed according to track
+  const stepMs = currentTrackId === 'arcade' ? 116 : (currentTrackId === 'synthwave' ? 128 : 160);
+  bgTimer = setInterval(onBgStep, stepMs);
 }
 
 export function stopBackgroundMusic() {
