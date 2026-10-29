@@ -137,6 +137,11 @@ export function runGame(videoEl, canvasEl, tracker, playerInfo, _baseline, ui, o
       ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
       ui.hideFeedback();
       startBackgroundMusic();
+
+      if (roundHistory.length > 0) {
+        sendSessionToBackend(playerInfo, stats, roundHistory);
+      }
+
       resolve({ exit: true, stats });
       onExit?.();
     }

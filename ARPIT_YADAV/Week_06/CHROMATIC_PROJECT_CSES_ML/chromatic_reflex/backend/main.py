@@ -54,6 +54,19 @@ def init_db():
         CREATE INDEX IF NOT EXISTS idx_rounds_session ON rounds(session_id);
         """)
 
+        # If database is fresh/empty on a new deployment, seed initial CSES benchmark scores
+        count = conn.execute("SELECT COUNT(*) FROM sessions").fetchone()[0]
+        if count == 0:
+            conn.executescript("""
+            INSERT INTO sessions (player_name, player_hand, score, total_rounds, correct_rounds, accuracy, avg_rt, best_rt, streak, timestamp)
+            VALUES 
+              ('ARPIT YADAV', 'right', 515, 20, 20, 100.0, 1233.7, 1038.9, 20, '2026-10-28T14:15:19Z'),
+              ('ryd hv', 'right', 475, 20, 19, 95.0, 1382.1, 1099.7, 19, '2026-10-28T15:01:17Z'),
+              ('Arpit (NITW)', 'right', 415, 20, 19, 95.0, 1033.9, 893.7, 17, '2026-10-06T15:24:39Z'),
+              ('alpha', 'right', 320, 20, 17, 85.0, 1022.3, 743.8, 14, '2026-10-27T15:47:19Z'),
+              ('AEDWER', 'left', 270, 20, 18, 90.0, 1137.4, 858.8, 9, '2026-10-27T14:27:01Z');
+            """)
+
 
 init_db()
 
