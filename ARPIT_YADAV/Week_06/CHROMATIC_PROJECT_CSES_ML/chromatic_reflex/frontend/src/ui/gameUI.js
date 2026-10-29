@@ -1245,13 +1245,25 @@ export function createGameUI(stageEl, hudEl, onExit) {
       const wordColor = isStroop ? cueInfo.wordColor : cueInfo;
       const inkMeta = TARGET_COLORS[inkColor] ?? { bg: '#3b82f6', fg: '#fff', glow: 'rgba(59, 130, 246, 0.6)' };
 
-      // Strictly ensure the boundary/border color is NEITHER the ink color NOR the word text color!
+      // Strictly ensure the boundary/border color is NEITHER the ink color NOR the word text color,
+      // and exclude visually similar shade pairs (BLUE with CYAN, RED with ORANGE).
       const distractorPalette = ['RED', 'BLUE', 'YELLOW', 'GREEN', 'PURPLE', 'CYAN', 'ORANGE'];
-      const candidates = distractorPalette.filter(c => c !== inkColor && c !== wordColor);
-      const chosenColor = (isStroop && cueInfo.barBgColor && cueInfo.barBgColor !== inkColor && cueInfo.barBgColor !== wordColor)
+      const candidates = distractorPalette.filter(c => {
+        if (c === inkColor || c === wordColor) return false;
+        if ((inkColor === 'BLUE' || wordColor === 'BLUE') && c === 'CYAN') return false;
+        if ((inkColor === 'CYAN' || wordColor === 'CYAN') && c === 'BLUE') return false;
+        if ((inkColor === 'RED' || wordColor === 'RED') && c === 'ORANGE') return false;
+        if ((inkColor === 'ORANGE' || wordColor === 'ORANGE') && c === 'RED') return false;
+        return true;
+      });
+      const fallbackList = distractorPalette.filter(c => c !== inkColor && c !== wordColor);
+      const activeCandidates = candidates.length > 0 ? candidates : fallbackList;
+
+      const isValidBarBg = isStroop && cueInfo.barBgColor && cueInfo.barBgColor !== inkColor && cueInfo.barBgColor !== wordColor;
+      const chosenColor = isValidBarBg
         ? cueInfo.barBgColor
-        : candidates[Math.floor(Math.random() * candidates.length)];
-      const borderMeta = TARGET_COLORS[chosenColor] ?? TARGET_COLORS.CYAN;
+        : activeCandidates[Math.floor(Math.random() * activeCandidates.length)];
+      const borderMeta = TARGET_COLORS[chosenColor] ?? TARGET_COLORS.PURPLE;
 
       // 1. Random distractor border & background on the topbar HUD (#gu-bar)
       bar.style.background = `linear-gradient(135deg, ${borderMeta.bg}35 0%, rgba(15, 23, 42, 0.90) 100%)`;

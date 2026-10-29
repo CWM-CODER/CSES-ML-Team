@@ -46,10 +46,20 @@ function pickStroopCue() {
   const distractorColors = COLORS.filter((c) => c !== inkColor);
   const wordColor = distractorColors[Math.floor(Math.random() * distractorColors.length)];
 
-  // Pick a random boundary/border color that is NEITHER the ink color NOR the word color!
+  // Pick a random boundary/border color that is strictly NEITHER the ink color NOR the word color,
+  // and avoid confusing shade pairs (BLUE with CYAN, RED with ORANGE).
   const borderPalette = ['RED', 'BLUE', 'YELLOW', 'GREEN', 'PURPLE', 'CYAN', 'ORANGE'];
-  const bgCandidates = borderPalette.filter((c) => c !== inkColor && c !== wordColor);
-  const barBgColor = bgCandidates[Math.floor(Math.random() * bgCandidates.length)];
+  const bgCandidates = borderPalette.filter((c) => {
+    if (c === inkColor || c === wordColor) return false;
+    if ((inkColor === 'BLUE' || wordColor === 'BLUE') && c === 'CYAN') return false;
+    if ((inkColor === 'CYAN' || wordColor === 'CYAN') && c === 'BLUE') return false;
+    if ((inkColor === 'RED' || wordColor === 'RED') && c === 'ORANGE') return false;
+    if ((inkColor === 'ORANGE' || wordColor === 'ORANGE') && c === 'RED') return false;
+    return true;
+  });
+  const fallbackList = borderPalette.filter((c) => c !== inkColor && c !== wordColor);
+  const finalCandidates = bgCandidates.length > 0 ? bgCandidates : fallbackList;
+  const barBgColor = finalCandidates[Math.floor(Math.random() * finalCandidates.length)];
 
   return {
     inkColor,

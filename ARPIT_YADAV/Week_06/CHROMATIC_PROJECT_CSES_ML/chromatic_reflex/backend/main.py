@@ -122,6 +122,17 @@ app.add_middleware(
 )
 
 
+@app.middleware("http")
+async def add_no_cache_headers(request, call_next):
+    response = await call_next(request)
+    # Always prevent caching of HTML and root index so latest deployed code is instantly loaded
+    if request.url.path == "/" or request.url.path.endswith(".html"):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
+    return response
+
+
 @app.post("/api/session", status_code=201)
 def create_session(payload: SessionPayload):
     s, p = payload.summary, payload.player
