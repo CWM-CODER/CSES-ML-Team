@@ -45,7 +45,10 @@ function pickStroopCue() {
   const inkColor = COLORS[Math.floor(Math.random() * COLORS.length)];
   const distractorColors = COLORS.filter((c) => c !== inkColor);
   const wordColor = distractorColors[Math.floor(Math.random() * distractorColors.length)];
-  const bgCandidates = COLORS.filter((c) => c !== inkColor);
+
+  // Pick a random boundary/border color that is NEITHER the ink color NOR the word color!
+  const borderPalette = ['RED', 'BLUE', 'YELLOW', 'GREEN', 'PURPLE', 'CYAN', 'ORANGE'];
+  const bgCandidates = borderPalette.filter((c) => c !== inkColor && c !== wordColor);
   const barBgColor = bgCandidates[Math.floor(Math.random() * bgCandidates.length)];
 
   return {

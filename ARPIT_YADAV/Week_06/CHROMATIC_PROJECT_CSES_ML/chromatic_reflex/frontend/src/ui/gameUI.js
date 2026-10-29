@@ -352,14 +352,15 @@ function injectGameStyles() {
       font-weight: 800;
       letter-spacing: 0.12em;
       text-transform: uppercase;
-      padding: 2px 12px;
+      padding: 3px 14px;
       border-radius: 999px;
-      background: rgba(0, 0, 0, 0.65);
-      border: 1px solid rgba(255, 255, 255, 0.15);
+      background: rgba(0, 0, 0, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      color: #cbd5e1;
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
     }
     .gu-stroop-word {
       font-size: 34px;
@@ -1244,32 +1245,34 @@ export function createGameUI(stageEl, hudEl, onExit) {
       const wordColor = isStroop ? cueInfo.wordColor : cueInfo;
       const inkMeta = TARGET_COLORS[inkColor] ?? { bg: '#3b82f6', fg: '#fff', glow: 'rgba(59, 130, 246, 0.6)' };
 
-      // Distractor background color for topbar so it does not give away the ink color
-      const distractorKeys = ['RED', 'BLUE', 'YELLOW', 'GREEN', 'PURPLE', 'CYAN', 'ORANGE'];
-      const candidates = distractorKeys.filter(c => c !== inkColor);
-      const chosenColor = (isStroop && cueInfo.barBgColor) ? cueInfo.barBgColor : candidates[Math.floor(Math.random() * candidates.length)];
-      const barMeta = TARGET_COLORS[chosenColor] ?? TARGET_COLORS.PURPLE;
+      // Strictly ensure the boundary/border color is NEITHER the ink color NOR the word text color!
+      const distractorPalette = ['RED', 'BLUE', 'YELLOW', 'GREEN', 'PURPLE', 'CYAN', 'ORANGE'];
+      const candidates = distractorPalette.filter(c => c !== inkColor && c !== wordColor);
+      const chosenColor = (isStroop && cueInfo.barBgColor && cueInfo.barBgColor !== inkColor && cueInfo.barBgColor !== wordColor)
+        ? cueInfo.barBgColor
+        : candidates[Math.floor(Math.random() * candidates.length)];
+      const borderMeta = TARGET_COLORS[chosenColor] ?? TARGET_COLORS.CYAN;
 
-      // 1. Random background color on the topbar HUD (#gu-bar)
-      bar.style.background = `linear-gradient(135deg, ${barMeta.bg}38 0%, rgba(15, 23, 42, 0.90) 100%)`;
-      bar.style.borderColor = `${barMeta.bg}88`;
-      bar.style.boxShadow = `0 6px 24px rgba(0, 0, 0, 0.5), 0 0 24px ${barMeta.glow}`;
+      // 1. Random distractor border & background on the topbar HUD (#gu-bar)
+      bar.style.background = `linear-gradient(135deg, ${borderMeta.bg}35 0%, rgba(15, 23, 42, 0.90) 100%)`;
+      bar.style.borderColor = `${borderMeta.bg}88`;
+      bar.style.boxShadow = `0 6px 24px rgba(0, 0, 0, 0.5), 0 0 24px ${borderMeta.glow}`;
 
-      // 2. Random background color on the cue box (#gu-cue)
-      cue.style.background = `radial-gradient(ellipse at center, ${barMeta.bg}2a 0%, rgba(10, 14, 26, 0.96) 75%)`;
-      cue.style.border = `2px solid ${barMeta.bg}`;
-      cue.style.setProperty('--banner-glow', barMeta.glow);
+      // 2. Random distractor boundary & glow on the cue box (#gu-cue) - strictly different from ink and word!
+      cue.style.background = `radial-gradient(ellipse at center, ${borderMeta.bg}22 0%, rgba(10, 14, 26, 0.96) 75%)`;
+      cue.style.border = `3px solid ${borderMeta.bg}`;
+      cue.style.setProperty('--banner-glow', borderMeta.glow);
       cue.classList.remove('gu-cue-active');
       void cue.offsetWidth; 
       cue.classList.add('gu-cue-active');
 
-      // 3. Stage frame border coordinates with the random topbar distractor
-      setStageBorderColor(barMeta.bg, barMeta.glow);
+      // 3. Stage frame border & corners match the random distractor border
+      setStageBorderColor(borderMeta.bg, borderMeta.glow);
 
       // 4. Stroop word text is drawn in INK COLOR (the user's required target)
       cueText.innerHTML = `
         <div class="gu-stroop-box">
-          <div class="gu-stroop-badge" style="color: ${inkMeta.bg}; border-color: ${inkMeta.bg}88;">
+          <div class="gu-stroop-badge">
             ⚡ MATCH INK COLOR
           </div>
           <div class="gu-stroop-word" style="color: ${inkMeta.bg}; text-shadow: 0 0 28px ${inkMeta.glow}, 0 2px 4px rgba(0,0,0,0.8);">
