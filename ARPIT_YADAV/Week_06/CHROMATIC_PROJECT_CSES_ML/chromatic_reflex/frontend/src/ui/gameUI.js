@@ -73,6 +73,7 @@ function injectGameStyles() {
       box-sizing: border-box;
       box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
       gap: 16px;
+      transition: background 0.35s ease, border-color 0.35s ease, box-shadow 0.35s ease;
     }
 
     .gu-bar-item {
@@ -1209,6 +1210,9 @@ export function createGameUI(stageEl, hudEl, onExit) {
 
     showArm() {
       clearTimeout(timeoutWarnTimer);
+      bar.style.background = 'rgba(17, 24, 39, 0.78)';
+      bar.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+      bar.style.boxShadow = '0 6px 24px rgba(0, 0, 0, 0.45)';
       cue.style.background = 'rgba(10, 14, 26, 0.95)';
       cue.style.border = '1px solid rgba(255, 255, 255, 0.08)';
       cue.className = '';
@@ -1221,6 +1225,9 @@ export function createGameUI(stageEl, hudEl, onExit) {
 
     showDelay() {
       clearTimeout(timeoutWarnTimer);
+      bar.style.background = 'rgba(17, 24, 39, 0.78)';
+      bar.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+      bar.style.boxShadow = '0 6px 24px rgba(0, 0, 0, 0.45)';
       cue.style.background = 'rgba(10, 14, 26, 0.95)';
       cue.style.border = '1px solid rgba(255, 255, 255, 0.08)';
       cue.className = '';
@@ -1235,27 +1242,41 @@ export function createGameUI(stageEl, hudEl, onExit) {
       const isStroop = typeof cueInfo === 'object' && cueInfo !== null;
       const inkColor = isStroop ? cueInfo.inkColor : cueInfo;
       const wordColor = isStroop ? cueInfo.wordColor : cueInfo;
-      const meta = TARGET_COLORS[inkColor] ?? { bg: '#3b82f6', fg: '#fff', glow: 'rgba(59, 130, 246, 0.6)' };
+      const inkMeta = TARGET_COLORS[inkColor] ?? { bg: '#3b82f6', fg: '#fff', glow: 'rgba(59, 130, 246, 0.6)' };
 
-      cue.style.background = `radial-gradient(ellipse at center, ${meta.bg}22 0%, rgba(10, 14, 26, 0.96) 75%)`;
-      cue.style.border = `2px solid ${meta.bg}`;
-      cue.style.setProperty('--banner-glow', meta.glow);
+      // Distractor background color for topbar so it does not give away the ink color
+      const distractorKeys = ['RED', 'BLUE', 'YELLOW', 'GREEN', 'PURPLE', 'CYAN', 'ORANGE'];
+      const candidates = distractorKeys.filter(c => c !== inkColor);
+      const chosenColor = (isStroop && cueInfo.barBgColor) ? cueInfo.barBgColor : candidates[Math.floor(Math.random() * candidates.length)];
+      const barMeta = TARGET_COLORS[chosenColor] ?? TARGET_COLORS.PURPLE;
+
+      // 1. Random background color on the topbar HUD (#gu-bar)
+      bar.style.background = `linear-gradient(135deg, ${barMeta.bg}38 0%, rgba(15, 23, 42, 0.90) 100%)`;
+      bar.style.borderColor = `${barMeta.bg}88`;
+      bar.style.boxShadow = `0 6px 24px rgba(0, 0, 0, 0.5), 0 0 24px ${barMeta.glow}`;
+
+      // 2. Random background color on the cue box (#gu-cue)
+      cue.style.background = `radial-gradient(ellipse at center, ${barMeta.bg}2a 0%, rgba(10, 14, 26, 0.96) 75%)`;
+      cue.style.border = `2px solid ${barMeta.bg}`;
+      cue.style.setProperty('--banner-glow', barMeta.glow);
       cue.classList.remove('gu-cue-active');
       void cue.offsetWidth; 
       cue.classList.add('gu-cue-active');
 
+      // 3. Stage frame border coordinates with the random topbar distractor
+      setStageBorderColor(barMeta.bg, barMeta.glow);
+
+      // 4. Stroop word text is drawn in INK COLOR (the user's required target)
       cueText.innerHTML = `
         <div class="gu-stroop-box">
-          <div class="gu-stroop-badge" style="color: ${meta.bg}; border-color: ${meta.bg}88;">
+          <div class="gu-stroop-badge" style="color: ${inkMeta.bg}; border-color: ${inkMeta.bg}88;">
             ⚡ MATCH INK COLOR
           </div>
-          <div class="gu-stroop-word" style="color: ${meta.bg}; text-shadow: 0 0 24px ${meta.glow}, 0 2px 4px rgba(0,0,0,0.8);">
+          <div class="gu-stroop-word" style="color: ${inkMeta.bg}; text-shadow: 0 0 28px ${inkMeta.glow}, 0 2px 4px rgba(0,0,0,0.8);">
             ${wordColor.toUpperCase()}
           </div>
         </div>
       `;
-
-      setStageBorderColor(meta.bg, meta.glow);
 
       timeoutBar.classList.remove('gu-timeout-red');
       timeoutBar.style.transition = 'none';
@@ -1328,11 +1349,18 @@ export function createGameUI(stageEl, hudEl, onExit) {
       fbRt.innerHTML = `<div>${cfg.rtText}</div><div style="font-size:13px;opacity:0.85;margin-top:4px;font-weight:600;">${cfg.detail}</div>`;
       fbEl.classList.add('gu-show');
 
+      bar.style.background = `linear-gradient(135deg, ${cfg.bg}30 0%, rgba(15, 23, 42, 0.92) 100%)`;
+      bar.style.borderColor = `${cfg.borderColor}88`;
+      bar.style.boxShadow = `0 6px 24px rgba(0, 0, 0, 0.5), 0 0 20px ${cfg.borderColor}66`;
+
       setStageBorderColor(cfg.borderColor, cfg.bg);
     },
 
     hideFeedback() {
       fbEl.classList.remove('gu-show');
+      bar.style.background = 'rgba(17, 24, 39, 0.78)';
+      bar.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+      bar.style.boxShadow = '0 6px 24px rgba(0, 0, 0, 0.45)';
       setStageBorderColor('rgba(56, 189, 248, 0.4)', 'rgba(56, 189, 248, 0.2)');
     },
 
